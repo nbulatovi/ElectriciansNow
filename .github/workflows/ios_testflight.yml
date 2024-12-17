@@ -10,23 +10,23 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    # Checkout Code
+    # Step 1: Checkout Code
     - name: Checkout code
       uses: actions/checkout@v3
 
-    # Set up Python
+    # Step 2: Set up Python
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    # Install Kivy and Kivy-iOS
+    # Step 3: Install Kivy and Kivy-iOS
     - name: Install dependencies
       run: |
         pip install kivy==2.3.0
         pip install kivy-ios
 
-    # Code Signing: Import Certificate
+    # Step 4: Import Code Signing Certificate
     - name: Import Code Signing Certificate
       env:
         APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -38,7 +38,7 @@ jobs:
         security list-keychains -s build.keychain
         security unlock-keychain -p temp-password build.keychain
 
-    # Code Signing: Install Provisioning Profile
+    # Step 5: Install Provisioning Profile
     - name: Install Provisioning Profile
       env:
         APPLE_PROFILE: ${{ secrets.APPLE_PROFILE }}
@@ -46,7 +46,7 @@ jobs:
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         echo "$APPLE_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
 
-    # Build Kivy iOS Project
+    # Step 6: Build Kivy iOS Project
     - name: Build Kivy iOS Project
       run: |
         git clone https://github.com/kivy/kivy-ios.git
@@ -57,7 +57,7 @@ jobs:
         python3 toolchain.py build myapp
         python3 toolchain.py xcode myapp
 
-    # Build IPA with Xcode
+    # Step 7: Build and Sign IPA
     - name: Build and Archive iOS App
       run: |
         cd kivy-ios
@@ -70,7 +70,12 @@ jobs:
                    -exportOptionsPlist $GITHUB_WORKSPACE/ExportOptions.plist \
                    -exportPath $PWD/build
 
-    # Upload to TestFlight using Fastlane
+    # Step 8: Install Fastlane
+    - name: Install Fastlane
+      run: |
+        gem install fastlane
+
+    # Step 9: Upload to TestFlight
     - name: Upload to TestFlight
       env:
         APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
@@ -78,9 +83,11 @@ jobs:
         BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
       run: |
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
-        gem install fastlane
         fastlane pilot upload --api_key_path api_key.json --team_id $TEAM_ID --ipa kivy-ios/build/myapp.ipa --app_identifier $BUNDLE_ID
 
-    # Upload IPA Artifact (Optional)
-    - name: Upload IPA
-      uses: acti
+    # Step 10: Upload IPA Artifact
+    - name: Upload IPA Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: myapp-ipa
+        path: kivy-ios/build/myapp.ipa
