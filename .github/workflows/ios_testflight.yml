@@ -57,6 +57,12 @@ jobs:
         python3 toolchain.py build myapp
         python3 toolchain.py xcode myapp
 
+    # Copy App Icon Set into Xcode Project
+    - name: Add App Icons
+      run: |
+        cp -R $GITHUB_WORKSPACE/Resources/AppIcon.appiconset \
+              kivy-ios/apps/myapp/Images.xcassets/AppIcon.appiconset
+              
     # Step 7: Build and Sign IPA
     - name: Build and Archive iOS App
       run: |
