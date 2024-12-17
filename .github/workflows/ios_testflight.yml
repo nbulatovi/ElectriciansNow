@@ -30,11 +30,13 @@ jobs:
     - name: Import Code Signing Certificate
       env:
         APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-        APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        APPLE_PRIVATE: ${{ secrets.APPLE_PRIVATE }}
       run: |
-        echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+        echo "$APPLE_CERTIFICATE" | base64 --decode > ios_distribution.cer
+        echo "$APPLE_PRIVATE" | base64 --decode > ios_private_key.pem
         security create-keychain -p temp-password build.keychain
-        security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+        security import ios_distribution.cer -k build.keychain -T /usr/bin/codesign
+        security import ios_private_key.pem -k build.keychain -P "private_key_password" -T /usr/bin/codesign
         security list-keychains -s build.keychain
         security unlock-keychain -p temp-password build.keychain
 
