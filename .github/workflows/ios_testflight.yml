@@ -1,0 +1,86 @@
+name: Build and Publish to TestFlight
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+    # Checkout Code
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # Set up Python
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    # Install Kivy and Kivy-iOS
+    - name: Install dependencies
+      run: |
+        pip install kivy==2.3.0
+        pip install kivy-ios
+
+    # Code Signing: Import Certificate
+    - name: Import Code Signing Certificate
+      env:
+        APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      run: |
+        echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+        security create-keychain -p temp-password build.keychain
+        security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+        security list-keychains -s build.keychain
+        security unlock-keychain -p temp-password build.keychain
+
+    # Code Signing: Install Provisioning Profile
+    - name: Install Provisioning Profile
+      env:
+        APPLE_PROFILE: ${{ secrets.APPLE_PROFILE }}
+      run: |
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        echo "$APPLE_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
+
+    # Build Kivy iOS Project
+    - name: Build Kivy iOS Project
+      run: |
+        git clone https://github.com/kivy/kivy-ios.git
+        cd kivy-ios
+        python3 toolchain.py build kivy
+        python3 toolchain.py create myapp
+        cp -r $GITHUB_WORKSPACE/* ./apps/myapp
+        python3 toolchain.py build myapp
+        python3 toolchain.py xcode myapp
+
+    # Build IPA with Xcode
+    - name: Build and Archive iOS App
+      run: |
+        cd kivy-ios
+        xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
+                   -scheme myapp \
+                   -configuration Release \
+                   -archivePath $PWD/build/myapp.xcarchive archive
+        xcodebuild -exportArchive \
+                   -archivePath $PWD/build/myapp.xcarchive \
+                   -exportOptionsPlist $GITHUB_WORKSPACE/ExportOptions.plist \
+                   -exportPath $PWD/build
+
+    # Upload to TestFlight using Fastlane
+    - name: Upload to TestFlight
+      env:
+        APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+        BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
+      run: |
+        echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
+        gem install fastlane
+        fastlane pilot upload --api_key_path api_key.json --team_id $TEAM_ID --ipa kivy-ios/build/myapp.ipa --app_identifier $BUNDLE_ID
+
+    # Upload IPA Artifact (Optional)
+    - name: Upload IPA
+      uses: acti
