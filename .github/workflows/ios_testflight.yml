@@ -24,12 +24,14 @@ jobs:
     - name: Install Build Tools
       run: |
         brew install autoconf automake libtool tree rsync
+        brew link libtool
+        pip install Cython==3.0.0
 
     # Step 4: Install Kivy and Kivy-iOS
     - name: Install dependencies
       run: |
-        pip install kivy==2.3.0
         pip install kivy-ios
+        toolchain build kivy
 
     # Step 5: Import Code Signing Certificate
     - name: Import Code Signing Certificate
@@ -53,43 +55,18 @@ jobs:
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         echo "$APPLE_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
 
-    - name: Copy Repository Root to Temporary Folder
-      run: |
-        mkdir -p myapp-src
-        rsync -av --exclude 'myapp-src' $GITHUB_WORKSPACE/ myapp-src/
-
-    # Step 8: Clone and Build Kivy-iOS
-    - name: Build Kivy-iOS
-      run: |
-        echo "Directory structure before kivy-ios build:"
-        tree -d
-        git clone https://github.com/kivy/kivy-ios.git
-        cd kivy-ios
-        python3 toolchain.py build kivy
-
     # Step 9: Clean and Set Up App Directory
     - name: Set up App Directory
       run: |
         # Create app and copy source files
-        cd kivy-ios
-        python3 toolchain.py create myapp ../myapp-src
+        toolchain create myapp .
         echo "kivy-ios Directory structure after setup:"
         tree -d
-
-    # Step X: Manually Set Up App Directory
-    - name: Set Up App Directory
-      run: |
-        mkdir -p kivy-ios/apps/myapp
-        cp -r myapp-src/* kivy-ios/apps/myapp/
-        echo "Contents of apps/myapp:"
-        find kivy-ios/apps/myapp
 
     # Step 10: Build the App and Generate Xcode Project
     - name: Build and Generate Xcode Project
       run: |
-        cd kivy-ios
-        python3 toolchain.py build myapp
-        python3 toolchain.py xcode myapp
+        toolchain update myapp-ios
 
     # Step 11: Copy App Icon Set into Xcode Project
     - name: Add App Icons
