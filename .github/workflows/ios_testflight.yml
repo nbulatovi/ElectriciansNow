@@ -53,7 +53,7 @@ jobs:
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         echo "$APPLE_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
 
-    # Cache Kivy-iOS Build Artifacts
+    # Step 4: Cache Kivy-iOS Build Artifacts
     - name: Cache Kivy-iOS Build
       id: cache-kivy
       uses: actions/cache@v3
@@ -64,18 +64,24 @@ jobs:
         key: kivy-ios-${{ runner.os }}-${{ hashFiles('**/toolchain.py') }}
         restore-keys: |
           kivy-ios-${{ runner.os }}
-          
-    # Build Kivy-iOS Only if Cache Missed
+
+    # Step 5: Clone and Build Kivy-iOS if Cache Missed
     - name: Build Kivy-iOS
       if: steps.cache-kivy.outputs.cache-hit != 'true'
       run: |
-        git clone https://github.com/kivy/kivy-ios.git
+        if [ ! -d "kivy-ios" ]; then
+          git clone https://github.com/kivy/kivy-ios.git
+        fi
         cd kivy-ios
         python3 toolchain.py build kivy
 
-    # Step 5: Build the iOS Project
+    # Step 6: Build the iOS Project
     - name: Build Kivy iOS Project
       run: |
+        if [ ! -d "kivy-ios" ]; then
+          git clone https://github.com/kivy/kivy-ios.git
+        fi
+        cd kivy-ios
         python3 toolchain.py create myapp
         cp -r $GITHUB_WORKSPACE/* ./apps/myapp/  # Ensure trailing slash for correct copy
         python3 toolchain.py build myapp
