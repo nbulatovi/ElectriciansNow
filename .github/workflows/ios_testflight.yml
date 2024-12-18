@@ -28,7 +28,7 @@ jobs:
         pip install Cython==3.0.0
 
     # Step 4: Install Kivy and Kivy-iOS
-    - name: Install dependencies
+    - name: Install Kivy
       run: |
         pip install kivy-ios
         toolchain build kivy
@@ -67,17 +67,19 @@ jobs:
     - name: Build and Generate Xcode Project
       run: |
         toolchain update myapp-ios
+        find .
+        tree -d
 
     # Step 11: Copy App Icon Set into Xcode Project
     - name: Add App Icons
       run: |
         cp -R $GITHUB_WORKSPACE/Resources/AppIcon.appiconset \
-              kivy-ios/apps/myapp/Images.xcassets/AppIcon.appiconset
+              myapp-ios/Images.xcassets/AppIcon.appiconset
 
     # Step 12: Build and Archive iOS App
     - name: Build and Archive iOS App
       run: |
-        cd kivy-ios
+        cd myapp-ios
         xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
                    -scheme myapp \
                    -configuration Release \
@@ -100,14 +102,14 @@ jobs:
         BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
       run: |
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
-        fastlane pilot upload --api_key_path api_key.json --team_id $TEAM_ID --ipa kivy-ios/build/myapp.ipa --app_identifier $BUNDLE_ID
+        fastlane pilot upload --api_key_path api_key.json --team_id $TEAM_ID --ipa myapp-ios/build/myapp.ipa --app_identifier $BUNDLE_ID
 
     # Step 15: Upload IPA Artifact
     - name: Upload IPA Artifact
       uses: actions/upload-artifact@v3
       with:
         name: myapp-ipa
-        path: kivy-ios/build/myapp.ipa
+        path: myapp-ios/build/myapp.ipa
 
     # Step 16: Upload to App Store
     - name: Upload to App Store
@@ -117,4 +119,4 @@ jobs:
         BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
       run: |
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
-        fastlane deliver --api_key_path api_key.json --app_identifier $BUNDLE_ID --team_id $TEAM_ID --ipa kivy-ios/build/myapp.ipa
+        fastlane deliver --api_key_path api_key.json --app_identifier $BUNDLE_ID --team_id $TEAM_ID --ipa myapp-ios/build/myapp.ipa
