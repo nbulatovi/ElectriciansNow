@@ -80,8 +80,8 @@ jobs:
     - name: Build and Generate Xcode Project
       run: |
         cd kivy-ios
-        python3 toolchain.py build myapp
-        python3 toolchain.py xcode myapp
+        python3 toolchain.py build myapp-ios
+        python3 toolchain.py xcode myapp-ios
 
     # Step 11: Copy App Icon Set into Xcode Project
     - name: Add App Icons
