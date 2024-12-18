@@ -76,12 +76,20 @@ jobs:
         echo "kivy-ios Directory structure after setup:"
         tree -d
 
+    # Step X: Manually Set Up App Directory
+    - name: Set Up App Directory
+      run: |
+        mkdir -p kivy-ios/apps/myapp
+        cp -r myapp-src/* kivy-ios/apps/myapp/
+        echo "Contents of apps/myapp:"
+        find kivy-ios/apps/myapp
+
     # Step 10: Build the App and Generate Xcode Project
     - name: Build and Generate Xcode Project
       run: |
         cd kivy-ios
-        python3 toolchain.py build myapp-ios
-        python3 toolchain.py xcode myapp-ios
+        python3 toolchain.py build myapp
+        python3 toolchain.py xcode myapp
 
     # Step 11: Copy App Icon Set into Xcode Project
     - name: Add App Icons
