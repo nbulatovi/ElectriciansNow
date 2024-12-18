@@ -67,14 +67,15 @@ jobs:
     - name: Build and Generate Xcode Project
       run: |
         toolchain update myapp-ios
-        find .
+        cd myapp-ios
         tree -d
+        ll myapp/Images.xcassets/AppIcon.appiconset/*
 
-    # Step 11: Copy App Icon Set into Xcode Project
-    - name: Add App Icons
-      run: |
-        cp -R $GITHUB_WORKSPACE/Resources/AppIcon.appiconset \
-              myapp-ios/Images.xcassets/AppIcon.appiconset
+    # # Step 11: Copy App Icon Set into Xcode Project
+    # - name: Add App Icons
+    #   run: |
+    #     cp -R $GITHUB_WORKSPACE/Resources/AppIcon.appiconset \
+    #           myapp-ios/myapp/Images.xcassets/AppIcon.appiconset
 
     # Step 12: Build and Archive iOS App
     - name: Build and Archive iOS App
