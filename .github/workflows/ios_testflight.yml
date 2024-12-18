@@ -57,7 +57,7 @@ jobs:
     - name: Build Kivy-iOS
       run: |
         echo "Directory structure before kivy-ios build:"
-        tree -d apps/myapp
+        tree -d
         rm -rf kivy-ios
         git clone https://github.com/kivy/kivy-ios.git
         cd kivy-ios
@@ -71,8 +71,8 @@ jobs:
         python3 toolchain.py create myapp $GITHUB_WORKSPACE
         mkdir -p apps/myapp
         cp -r $GITHUB_WORKSPACE/* apps/myapp/
-        echo "Directory structure after setup:"
-        tree -d apps/myapp
+        echo "kivy-ios Directory structure after setup:"
+        tree -d
 
     # Step 10: Build the App and Generate Xcode Project
     - name: Build and Generate Xcode Project
