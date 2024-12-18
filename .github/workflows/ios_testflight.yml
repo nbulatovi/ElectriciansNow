@@ -71,24 +71,28 @@ jobs:
         tree -d
         ls -al myapp/Images.xcassets/AppIcon.appiconset/*
 
-    # # Step 11: Copy App Icon Set into Xcode Project
-    # - name: Add App Icons
-    #   run: |
-    #     cp -R $GITHUB_WORKSPACE/Resources/AppIcon.appiconset \
-    #           myapp-ios/myapp/Images.xcassets/AppIcon.appiconset
+    # Step 11: Copy App Icon Set into Xcode Project
+    - name: Add App Icons
+      run: |
+        cp $GITHUB_WORKSPACE/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
 
     # Step 12: Build and Archive iOS App
     - name: Build and Archive iOS App
       run: |
         cd myapp-ios
+        # Update deployment target in the Xcode project
+        plutil -replace IPHONEOS_DEPLOYMENT_TARGET -string "12.0" myapp-ios/myapp.xcodeproj/project.pbxproj
+
         xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
                    -scheme myapp \
                    -configuration Release \
-                   -archivePath $PWD/build/myapp.xcarchive archive
+                   -archivePath $PWD/build/myapp.xcarchive archive \
+                   DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }}
         xcodebuild -exportArchive \
                    -archivePath $PWD/build/myapp.xcarchive \
                    -exportOptionsPlist $GITHUB_WORKSPACE/ExportOptions.plist \
-                   -exportPath $PWD/build
+                   -exportPath $PWD/build \
+                   DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }}
 
     # Step 13: Install Fastlane
     - name: Install Fastlane
