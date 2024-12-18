@@ -137,3 +137,13 @@ jobs:
       with:
         name: myapp-ipa
         path: kivy-ios/build/myapp.ipa
+
+    # Step 11: Upload to App Store
+    - name: Upload to App Store
+      env:
+        APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+        BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
+      run: |
+        echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
+        fastlane deliver --api_key_path api_key.json --app_identifier $BUNDLE_ID --team_id $TEAM_ID --ipa kivy-ios/build/myapp.ipa
