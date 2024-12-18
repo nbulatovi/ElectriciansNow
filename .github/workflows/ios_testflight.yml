@@ -69,7 +69,7 @@ jobs:
         toolchain update myapp-ios
         cd myapp-ios
         tree -d
-        ll myapp/Images.xcassets/AppIcon.appiconset/*
+        ls -al myapp/Images.xcassets/AppIcon.appiconset/*
 
     # # Step 11: Copy App Icon Set into Xcode Project
     # - name: Add App Icons
