@@ -53,12 +53,16 @@ jobs:
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         echo "$APPLE_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
 
+    - name: Copy Repository Root to Temporary Folder
+      run: |
+        mkdir -p myapp-src
+        cp -r $GITHUB_WORKSPACE/* myapp-src/
+
     # Step 8: Clone and Build Kivy-iOS
     - name: Build Kivy-iOS
       run: |
         echo "Directory structure before kivy-ios build:"
         tree -d
-        rm -rf kivy-ios
         git clone https://github.com/kivy/kivy-ios.git
         cd kivy-ios
         python3 toolchain.py build kivy
@@ -68,9 +72,7 @@ jobs:
       run: |
         # Create app and copy source files
         cd kivy-ios
-        python3 toolchain.py create myapp $GITHUB_WORKSPACE
-        mkdir -p apps/myapp
-        cp -r $GITHUB_WORKSPACE/* apps/myapp/
+        python3 toolchain.py create myapp ../myapp-src
         echo "kivy-ios Directory structure after setup:"
         tree -d
 
