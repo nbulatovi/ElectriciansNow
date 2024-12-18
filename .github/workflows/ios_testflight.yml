@@ -78,12 +78,22 @@ jobs:
     # Step 6: Build the iOS Project
     - name: Build Kivy iOS Project
       run: |
+        # Clone Kivy-iOS if it doesn't exist
         if [ ! -d "kivy-ios" ]; then
           git clone https://github.com/kivy/kivy-ios.git
         fi
+
         cd kivy-ios
-        python3 toolchain.py create myapp
-        cp -r $GITHUB_WORKSPACE/* ./apps/myapp/  # Ensure trailing slash for correct copy
+
+        # Create the app directory and copy app source files
+        python3 toolchain.py create myapp $GITHUB_WORKSPACE
+        mkdir -p apps/myapp  # Ensure the target folder exists
+        cp -r $GITHUB_WORKSPACE/* apps/myapp/
+
+        # Verify app folder structure
+        tree
+
+        # Build the app and generate Xcode project
         python3 toolchain.py build myapp
         python3 toolchain.py xcode myapp
 
