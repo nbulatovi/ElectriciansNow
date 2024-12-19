@@ -14,7 +14,7 @@
     <string>MNGTD992QD</string>
     <key>provisioningProfiles</key>
     <dict>
-        <key>com.snslocation.electriciansnow</key>
+        <key>com.snslocation.electricians-now</key>
         <string>Provisioning Profile Name</string>
     </dict>
 </dict>
