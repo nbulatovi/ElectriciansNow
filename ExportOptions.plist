@@ -12,8 +12,10 @@
     <true/>
     <key>teamID</key>
     <string>MNGTD992QD</string>
+    <key>provisioningProfiles</key>
     <dict>
         <key>com.snslocation.electriciansnow</key>
         <string>Provisioning Profile Name</string>
-    </dict></dict>
+    </dict>
+</dict>
 </plist>
