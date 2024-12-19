@@ -84,7 +84,7 @@ jobs:
       env:
         TEAM_ID: ${{ secrets.TEAM_ID }}
         BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
-        PROFILE_UUID="d32433c2-c4e5-4c06-be04-421c96129209"
+        PROFILE_UUID: "d32433c2-c4e5-4c06-be04-421c96129209"
       run: |
         cd myapp-ios
 
