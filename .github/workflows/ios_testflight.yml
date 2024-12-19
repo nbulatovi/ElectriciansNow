@@ -54,6 +54,7 @@ jobs:
       run: |
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         echo "$APPLE_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
+        ls -al ~/Library/MobileDevice/Provisioning\ Profiles/*
 
     # Step 9: Clean and Set Up App Directory
     - name: Set up App Directory
@@ -78,23 +79,28 @@ jobs:
 
     # Step 12: Build and Archive iOS App
     - name: Build and Archive iOS App
+      env:
+        BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
       run: |
         cd myapp-ios
-        
+
         # Update deployment target in the Xcode project
-        # plutil -replace IPHONEOS_DEPLOYMENT_TARGET -string "12.0" myapp.xcodeproj/project.pbxproj
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 17.0/' myapp.xcodeproj/project.pbxproj
+        
+        sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = .*;/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/g' myapp.xcodeproj/project.pbxproj
 
         xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
                    -scheme myapp \
                    -configuration Release \
                    -archivePath $PWD/build/myapp.xcarchive archive \
-                   DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }}
+                   DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }} \
+                   -allowProvisioningUpdates
         xcodebuild -exportArchive \
                    -archivePath $PWD/build/myapp.xcarchive \
                    -exportOptionsPlist $GITHUB_WORKSPACE/ExportOptions.plist \
                    -exportPath $PWD/build \
-                   DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }}
+                   DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }} \
+                   -allowProvisioningUpdates
 
     # Step 13: Install Fastlane
     - name: Install Fastlane
