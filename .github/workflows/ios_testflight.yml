@@ -80,8 +80,10 @@ jobs:
     - name: Build and Archive iOS App
       run: |
         cd myapp-ios
+        
         # Update deployment target in the Xcode project
         # plutil -replace IPHONEOS_DEPLOYMENT_TARGET -string "12.0" myapp.xcodeproj/project.pbxproj
+        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 17.0/' myapp.xcodeproj/project.pbxproj
 
         xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
                    -scheme myapp \
