@@ -55,6 +55,8 @@ jobs:
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         echo "$APPLE_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
         ls -al ~/Library/MobileDevice/Provisioning\ Profiles/*
+        security find-identity -p codesigning
+        security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
 
     # Step 9: Clean and Set Up App Directory
     - name: Set up App Directory
