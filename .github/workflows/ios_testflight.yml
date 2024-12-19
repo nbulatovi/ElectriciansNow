@@ -27,17 +27,11 @@ jobs:
         brew link libtool
         pip install Cython==3.0.0
 
-    - name: Debug Resources Directory
+    # Step 4: Install Kivy and Kivy-iOS
+    - name: Install Kivy
       run: |
-        echo "Contents of Resources directory:"
-        cd $GITHUB_WORKSPACE
-        find . 
-
-    # # Step 4: Install Kivy and Kivy-iOS
-    # - name: Install Kivy
-    #   run: |
-    #     pip install kivy-ios
-    #     toolchain build kivy
+        pip install kivy-ios
+        toolchain build kivy
 
     # Step 5: Import Code Signing Certificate
     - name: Import Code Signing Certificate
