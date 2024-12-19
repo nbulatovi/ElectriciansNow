@@ -81,7 +81,7 @@ jobs:
       run: |
         cd myapp-ios
         # Update deployment target in the Xcode project
-        plutil -replace IPHONEOS_DEPLOYMENT_TARGET -string "12.0" myapp-ios/myapp.xcodeproj/project.pbxproj
+        plutil -replace IPHONEOS_DEPLOYMENT_TARGET -string "12.0" myapp.xcodeproj/project.pbxproj
 
         xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
                    -scheme myapp \
