@@ -82,8 +82,6 @@ jobs:
     # Step 12: Build and Archive iOS App
     - name: Build and Archive iOS App
       env:
-        TEAM_ID: ${{ secrets.TEAM_ID }}
-        BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
         PROFILE_UUID: "d32433c2-c4e5-4c06-be04-421c96129209"
       run: |
         cd myapp-ios
@@ -91,34 +89,34 @@ jobs:
         # Update deployment target in the Xcode project
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 17.0/' myapp.xcodeproj/project.pbxproj
         # Update code signing
-        sed -i '' "/CODE_SIGN_IDENTITY/c\
+        sed -i '' '/CODE_SIGN_IDENTITY/c\
                           CODE_SIGN_STYLE = Manual;\
-                          CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location ($TEAM_ID)" ;\
+                          CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" ;\
                           PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209; \
-                          DEVELOPMENT_TEAM=$TEAM_ID ;\
-                          PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID;
-        " myapp.xcodeproj/project.pbxproj
+                          DEVELOPMENT_TEAM=MNGTD992QD ;\
+                          PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now;
+        ' myapp.xcodeproj/project.pbxproj
         cat myapp.xcodeproj/project.pbxproj
 
         xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
                    -scheme myapp \
                    -configuration Release \
                    -archivePath $PWD/build/myapp.xcarchive archive \
-                   CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location ($TEAM_ID)" \
+                   CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
                    PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
-                   DEVELOPMENT_TEAM=$TEAM_ID \
-                   PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID \
+                   DEVELOPMENT_TEAM=MNGTD992QD \
+                   PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
                    -allowProvisioningUpdates
         xcodebuild -exportArchive \
                    -archivePath $PWD/build/myapp.xcarchive \
                    -exportOptionsPlist $GITHUB_WORKSPACE/ExportOptions.plist \
                    -exportPath $PWD/build \
-                   CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location ($TEAM_ID)" \
+                   CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
                    PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
-                   DEVELOPMENT_TEAM=$TEAM_ID \
-                   PRODUCT_BUNDLE_IDENTIFIER=$BUNDLE_ID \
+                   DEVELOPMENT_TEAM=MNGTD992QD \
+                   PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
                    -allowProvisioningUpdates
-                   
+
     # Step 13: Install Fastlane
     - name: Install Fastlane
       run: |
@@ -128,11 +126,9 @@ jobs:
     - name: Upload to TestFlight
       env:
         APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
-        TEAM_ID: ${{ secrets.TEAM_ID }}
-        BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
       run: |
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
-        fastlane pilot upload --api_key_path api_key.json --team_id $TEAM_ID --ipa myapp-ios/build/myapp.ipa --app_identifier $BUNDLE_ID
+        fastlane pilot upload --api_key_path api_key.json --team_id MNGTD992QD --ipa myapp-ios/build/myapp.ipa --app_identifier com.snslocation.electricians-now
 
     # Step 15: Upload IPA Artifact
     - name: Upload IPA Artifact
@@ -145,8 +141,6 @@ jobs:
     - name: Upload to App Store
       env:
         APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
-        TEAM_ID: ${{ secrets.TEAM_ID }}
-        BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
       run: |
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
-        fastlane deliver --api_key_path api_key.json --app_identifier $BUNDLE_ID --team_id $TEAM_ID --ipa myapp-ios/build/myapp.ipa
+        fastlane deliver --api_key_path api_key.json --app_identifier com.snslocation.electricians-now --team_id MNGTD992QD --ipa myapp-ios/build/myapp.ipa
