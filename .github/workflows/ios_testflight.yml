@@ -58,21 +58,19 @@ jobs:
         security find-identity -p codesigning
         security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
 
-    # Step 9: Clean and Set Up App Directory
+    # Step 9: Create app and copy source files
     - name: Set up App Directory
       run: |
-        # Create app and copy source files
         toolchain create myapp .
         echo "kivy-ios Directory structure after setup:"
-        tree -d
+        # tree -d
 
     # Step 10: Build the App and Generate Xcode Project
     - name: Build and Generate Xcode Project
       run: |
         toolchain update myapp-ios
         cd myapp-ios
-        tree -d
-        ls -al myapp/Images.xcassets/AppIcon.appiconset/*
+        # tree -d
 
     # Step 11: Copy App Icon Set into Xcode Project
     - name: Add App Icons
@@ -82,6 +80,8 @@ jobs:
     # Step 12: Build and Archive iOS App
     - name: Build and Archive iOS App
       env:
+        ACTIONS_STEP_DEBUG: false
+        RUNNER_DEBUG: false
         PROFILE_UUID: "d32433c2-c4e5-4c06-be04-421c96129209"
       run: |
         cd myapp-ios
@@ -96,7 +96,7 @@ jobs:
                           DEVELOPMENT_TEAM=MNGTD992QD ;\
                           PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now;
         ' myapp.xcodeproj/project.pbxproj
-        cat myapp.xcodeproj/project.pbxproj
+        # cat myapp.xcodeproj/project.pbxproj
 
         xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
                    -scheme myapp \
@@ -107,6 +107,7 @@ jobs:
                    DEVELOPMENT_TEAM=MNGTD992QD \
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
                    -allowProvisioningUpdates
+
         xcodebuild -exportArchive \
                    -archivePath $PWD/build/myapp.xcarchive \
                    -exportOptionsPlist $GITHUB_WORKSPACE/ExportOptions.plist \
