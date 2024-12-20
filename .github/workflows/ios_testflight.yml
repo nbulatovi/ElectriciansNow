@@ -85,6 +85,7 @@ jobs:
         PROFILE_UUID: "d32433c2-c4e5-4c06-be04-421c96129209"
       run: |
         cd myapp-ios
+        df -h
 
         # Update deployment target in the Xcode project
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 17.0/' myapp.xcodeproj/project.pbxproj
