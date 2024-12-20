@@ -29,6 +29,8 @@ jobs:
 
     # Step 4: Install Kivy and Kivy-iOS
     - name: Install Kivy
+      env:
+        ACTIONS_STEP_DEBUG: false
       run: |
         pip install kivy-ios
         toolchain build kivy
@@ -98,7 +100,7 @@ jobs:
                           PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now;
         ' myapp.xcodeproj/project.pbxproj
         # cat myapp.xcodeproj/project.pbxproj
-
+        echo ------------------------------------------------------------------------------------
         xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
                    -scheme myapp \
                    -configuration Release \
@@ -107,8 +109,8 @@ jobs:
                    PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
                    DEVELOPMENT_TEAM=MNGTD992QD \
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
-                   -allowProvisioningUpdates
-
+                   -allowProvisioningUpdates -quiet
+        echo ------------------------------------------------------------------------------------
         xcodebuild -exportArchive \
                    -archivePath $PWD/build/myapp.xcarchive \
                    -exportOptionsPlist $GITHUB_WORKSPACE/ExportOptions.plist \
@@ -117,7 +119,8 @@ jobs:
                    PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
                    DEVELOPMENT_TEAM=MNGTD992QD \
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
-                   -allowProvisioningUpdates
+                   -allowProvisioningUpdates -quiet
+        echo ------------------------------------------------------------------------------------
 
     # Step 13: Install Fastlane
     - name: Install Fastlane
