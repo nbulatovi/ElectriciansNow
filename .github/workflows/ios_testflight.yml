@@ -24,7 +24,6 @@ jobs:
     - name: Install Build Tools
       run: |
         brew install autoconf automake libtool tree rsync
-        brew link libtool
         pip install Cython==3.0.0
 
     # Step 4: Install Kivy and Kivy-iOS
@@ -61,7 +60,7 @@ jobs:
         security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
 
     # Step 9: Create app and copy source files
-    - name: Set up App Directory
+    - name: Create app and copy source files
       run: |
         toolchain create myapp .
         echo "kivy-ios Directory structure after setup:"
@@ -82,12 +81,10 @@ jobs:
     # Step 12: Build and Archive iOS App
     - name: Build and Archive iOS App
       env:
-        ACTIONS_STEP_DEBUG: false
-        RUNNER_DEBUG: false
         PROFILE_UUID: "d32433c2-c4e5-4c06-be04-421c96129209"
       run: |
         cd myapp-ios
-        df -h
+        while true; do date; sleep 60; done &
 
         # Update deployment target in the Xcode project
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 17.0/' myapp.xcodeproj/project.pbxproj
