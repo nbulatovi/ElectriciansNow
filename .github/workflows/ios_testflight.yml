@@ -17,7 +17,6 @@ jobs:
 
     - name: Clear Disk Space
       run: |
-        df -h
         # Clear derived data
         rm -rf ~/Library/Developer/Xcode/DerivedData/*
       
@@ -110,7 +109,7 @@ jobs:
         PROFILE_UUID: "d32433c2-c4e5-4c06-be04-421c96129209"
       run: |
         cd myapp-ios
-        while true; do date; sleep 60; done &
+        df -h
 
         # Update deployment target in the Xcode project
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 17.0/' myapp.xcodeproj/project.pbxproj
@@ -143,7 +142,12 @@ jobs:
                    DEVELOPMENT_TEAM=MNGTD992QD \
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
                    -allowProvisioningUpdates -quiet
-        echo ------------------------------------------------------------------------------------
+      
+    - name: Handle failure
+      if: failure()
+      run: |
+        echo "The previous step failed. Handling failure."
+        df -h
 
     # Step 13: Install Fastlane
     - name: Install Fastlane
