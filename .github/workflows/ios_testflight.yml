@@ -14,8 +14,8 @@ jobs:
 
     - name: Disk Usage
       run: |
-      sudo du -sh /* 2>/dev/null
-      exit 1
+        sudo du -sh /* 2>/dev/null
+        exit 1
 
     # Step 1: Checkout Code
     - name: Checkout code
