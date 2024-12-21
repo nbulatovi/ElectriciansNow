@@ -16,7 +16,7 @@ jobs:
       run: |
         # sudo du -sh /* 2>/dev/null
         # sudo du -sh /System/* 2>/dev/null
-        sudo du -sh /System/Volumes/Data/* 2>/dev/null
+        sudo du -h --max-depth=2 /System/Volumes/Data 2>/dev/null
         exit 1
 
     # Step 1: Checkout Code
@@ -135,7 +135,7 @@ jobs:
     - name: Disk usage
       if: always()
       run: |
-        df -h
+        df -h --block-size=GB
 
     # Step 13: Install Fastlane
     - name: Install Fastlane
