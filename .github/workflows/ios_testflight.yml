@@ -18,9 +18,6 @@ jobs:
     - name: Clear Disk Space
       run: |
         df -h
-        # Remove Xcode versions other than the default
-        sudo rm -rf /Applications/Xcode_* || true
-      
         # Clear derived data
         rm -rf ~/Library/Developer/Xcode/DerivedData/*
       
