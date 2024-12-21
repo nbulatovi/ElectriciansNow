@@ -15,7 +15,12 @@ jobs:
     - name: Disk cleanup
       run: |
         # sudo du -sh /* 2>/dev/null
-        sudo du -sh /System/* 2>/dev/null
+        # sudo du -sh /System/* 2>/dev/null
+        for snapshot in $(tmutil listlocalsnapshots / | grep -o 'com.apple.TimeMachine.*'); do
+        sudo tmutil deletelocalsnapshots "$snapshot"
+        done
+
+        sudo du -sh /System/Volumes/* 2>/dev/null
         exit 1
 
     # Step 1: Checkout Code
