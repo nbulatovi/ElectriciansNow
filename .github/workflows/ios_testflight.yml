@@ -8,7 +8,7 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-    timeout-minutes: 300 # Increase this timeout value as needed
+    timeout-minutes: 2000 # Increase this timeout value as needed
 
     steps:
 
@@ -20,8 +20,7 @@ jobs:
         sudo rm -rf /System/Volumes/Data/Users/runner/Library/Android/* || true
         sudo rm -rf /System/Volumes/Data/Users/runner/Library/Developer/CoreSimulator || true
         sudo du -sh /System/Volumes/Data/Users/runner/Library/* 2>/dev/null || true
-        sudo df -h
-        exit 1
+        df -h
 
     # Step 1: Checkout Code
     - name: Checkout code
@@ -92,7 +91,7 @@ jobs:
         cp $GITHUB_WORKSPACE/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
 
     # Step 12: Build and Archive iOS App
-    - name: Build and Archive iOS App
+    - name: Build and Archive iOS App 1/2
       env:
         PROFILE_UUID: "d32433c2-c4e5-4c06-be04-421c96129209"
       run: |
@@ -117,24 +116,34 @@ jobs:
                    -configuration Release \
                    -archivePath $PWD/build/myapp.xcarchive archive \
                    -destination "generic/platform=iOS" \
+                   -showBuildSettings \
                    CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
                    PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
                    DEVELOPMENT_TEAM=MNGTD992QD \
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
                    ONLY_ACTIVE_ARCH=YES \
                    INDEX_ENABLE=NO \
-                   -allowProvisioningUpdates -quiet
+                   -allowProvisioningUpdates
+
+    # Step 12: Build and Archive iOS App
+    - name: Build and Archive iOS App 2/2
+      env:
+        PROFILE_UUID: "d32433c2-c4e5-4c06-be04-421c96129209"
+      run: |
+        cd myapp-ios
+        df -h
         echo ------------------------------------------------------------------------------------
         xcodebuild -exportArchive \
                    -archivePath $PWD/build/myapp.xcarchive \
                    -exportOptionsPlist $GITHUB_WORKSPACE/ExportOptions.plist \
                    -exportPath $PWD/build \
                    -destination "generic/platform=iOS" \
+                   -showBuildSettings \
                    CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
                    PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
                    DEVELOPMENT_TEAM=MNGTD992QD \
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
-                   -allowProvisioningUpdates -quiet
+                   -allowProvisioningUpdates
       
     - name: Disk usage
       if: always()
