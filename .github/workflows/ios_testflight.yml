@@ -116,7 +116,6 @@ jobs:
                    -configuration Release \
                    -archivePath $PWD/build/myapp.xcarchive archive \
                    -destination "generic/platform=iOS" \
-                   -showBuildSettings \
                    CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
                    PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
                    DEVELOPMENT_TEAM=MNGTD992QD \
@@ -138,7 +137,6 @@ jobs:
                    -exportOptionsPlist $GITHUB_WORKSPACE/ExportOptions.plist \
                    -exportPath $PWD/build \
                    -destination "generic/platform=iOS" \
-                   -showBuildSettings \
                    CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
                    PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
                    DEVELOPMENT_TEAM=MNGTD992QD \
