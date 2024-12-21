@@ -11,12 +11,16 @@ jobs:
     timeout-minutes: 300 # Increase this timeout value as needed
 
     steps:
+
+    - name: Disk Usage
+      run: |
+      sudo du -sh /* 2>/dev/null
+      exit 1
+
     # Step 1: Checkout Code
     - name: Checkout code
       uses: actions/checkout@v3
-      sudo du -sh 2>/dev/null
-      exit 1
-
+      
     # Step 2: Set up Python
     - name: Set up Python
       uses: actions/setup-python@v4
