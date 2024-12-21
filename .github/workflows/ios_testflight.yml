@@ -16,7 +16,8 @@ jobs:
       run: |
         # sudo du -sh /* 2>/dev/null
         # sudo du -sh /System/* 2>/dev/null
-        sudo du -h --max-depth=2 /System/Volumes/Data 2>/dev/null
+        sudo du -sh /System/Volumes/Data/Applications/* 2>/dev/null
+        sudo du -sh /System/Volumes/Data/Users/* 2>/dev/null
         exit 1
 
     # Step 1: Checkout Code
