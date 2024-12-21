@@ -15,6 +15,37 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Clear Disk Space
+      run: |
+        df -h
+        # Remove Xcode versions other than the default
+        sudo rm -rf /Applications/Xcode_* || true
+      
+        # Remove unused simulators
+        xcrun simctl delete unavailable
+      
+        # Clear derived data
+        rm -rf ~/Library/Developer/Xcode/DerivedData/*
+      
+        # Remove unnecessary system logs and caches
+        sudo rm -rf /Library/Caches/*
+        sudo rm -rf ~/Library/Caches/*
+        sudo rm -rf /System/Library/Caches/*
+      
+        # Remove unused Ruby versions
+        rvm implode --force || true
+        sudo rm -rf ~/.rvm
+      
+        # Remove Homebrew cache
+        brew cleanup -s
+        rm -rf "$(brew --cache)"
+      
+        # Remove temporary files
+        sudo rm -rf /private/tmp/*
+        sudo rm -rf /var/folders/*
+      
+        # Check free disk space
+        df -h
 
     # Step 2: Set up Python
     - name: Set up Python
@@ -35,22 +66,6 @@ jobs:
       run: |
         pip install kivy-ios
         toolchain build kivy
-dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n | tail -n 100
-df -h
-echo "Removing large packages"
-sudo apt-get remove -y '^ghc-8.*'
-sudo apt-get remove -y '^dotnet-.*'
-sudo apt-get remove -y '^llvm-.*'
-sudo apt-get remove -y 'php.*'
-sudo apt-get remove -y azure-cli google-cloud-sdk hhvm google-chrome-stable firefox powershell mono-devel
-sudo apt-get autoremove -y
-sudo apt-get clean
-df -h
-echo "Removing large directories"
-# deleting 15GB
-rm -rf /usr/share/dotnet/
-df -h
-
 
     # Step 5: Import Code Signing Certificate
     - name: Import Code Signing Certificate
