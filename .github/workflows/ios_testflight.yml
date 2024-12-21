@@ -90,7 +90,7 @@ jobs:
         df -h
 
         # Update deployment target in the Xcode project
-        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 18.0/' myapp.xcodeproj/project.pbxproj
+        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 12.0/' myapp.xcodeproj/project.pbxproj
         # Update code signing
         sed -i '' '/CODE_SIGN_IDENTITY/c\
                           CODE_SIGN_STYLE = Manual;\
@@ -99,7 +99,8 @@ jobs:
                           DEVELOPMENT_TEAM=MNGTD992QD ;\
                           PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now;
         ' myapp.xcodeproj/project.pbxproj
-        # cat myapp.xcodeproj/project.pbxproj
+        cat myapp.xcodeproj/project.pbxproj
+        
         echo ------------------------------------------------------------------------------------
         xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
                    -scheme myapp \
