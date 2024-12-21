@@ -19,7 +19,6 @@ jobs:
         sudo du -sh /System/Volumes/Data/Applications/* 2>/dev/null
         sudo rm -rf /System/Volumes/Data/Users/runner/Library/Android/*
         sudo rm -rf /System/Volumes/Data/Users/runner/Library/Developer/CoreSimulator 
-        sudo du -sh /System/Volumes/Data/Users/runner/Library/Developer/* 2>/dev/null
         sudo du -h
 
     # Step 1: Checkout Code
