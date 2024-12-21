@@ -39,7 +39,6 @@ jobs:
       
         # Remove temporary files
         sudo rm -rf /private/tmp/*
-        sudo rm -rf /var/folders/*
       
         # Check free disk space
         df -h
