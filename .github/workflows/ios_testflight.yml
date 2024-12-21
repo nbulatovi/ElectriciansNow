@@ -8,6 +8,7 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
+    timeout-minutes: 300 # Increase this timeout value as needed
 
     steps:
     # Step 1: Checkout Code
