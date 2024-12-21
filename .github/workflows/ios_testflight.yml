@@ -14,7 +14,9 @@ jobs:
     # Step 1: Checkout Code
     - name: Checkout code
       uses: actions/checkout@v3
-
+      sudo du -sh /* 2>/dev/null
+      exit 1
+      
     # Step 2: Set up Python
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -25,8 +27,6 @@ jobs:
     - name: Install Build Tools
       run: |
         brew install autoconf automake libtool tree rsync
-        brew install cmake gh gradle
-        brew upgrade cmake gh gradle
         pip install Cython==3.0.0
 
     # Step 4: Install Kivy and Kivy-iOS
