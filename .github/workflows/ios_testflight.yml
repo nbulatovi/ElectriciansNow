@@ -90,7 +90,7 @@ jobs:
         df -h
 
         # Update deployment target in the Xcode project
-        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 12.0/' myapp.xcodeproj/project.pbxproj
+        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 16.1/' myapp.xcodeproj/project.pbxproj
         # Update code signing
         sed -i '' '/CODE_SIGN_IDENTITY/c\
                           CODE_SIGN_STYLE = Manual;\
@@ -111,6 +111,8 @@ jobs:
                    PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
                    DEVELOPMENT_TEAM=MNGTD992QD \
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
+                   ONLY_ACTIVE_ARCH=YES \
+                   INDEX_ENABLE=NO \
                    -allowProvisioningUpdates -quiet
         echo ------------------------------------------------------------------------------------
         xcodebuild -exportArchive \
