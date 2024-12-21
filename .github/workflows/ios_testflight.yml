@@ -21,9 +21,6 @@ jobs:
         # Remove Xcode versions other than the default
         sudo rm -rf /Applications/Xcode_* || true
       
-        # Remove unused simulators
-        xcrun simctl delete unavailable
-      
         # Clear derived data
         rm -rf ~/Library/Developer/Xcode/DerivedData/*
       
