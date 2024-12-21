@@ -16,8 +16,9 @@ jobs:
       run: |
         # sudo du -sh /* 2>/dev/null
         # sudo du -sh /System/* 2>/dev/null
+        sudo rm -rf /System/Volumes/Data/Applications/Xcode_15* /System/Volumes/Data/Applications/Xcode_16.0*
         sudo du -sh /System/Volumes/Data/Applications/* 2>/dev/null
-        sudo du -sh /System/Volumes/Data/Users/* 2>/dev/null
+        sudo du -sh /System/Volumes/Data/Users/runner 2>/dev/null
         exit 1
 
     # Step 1: Checkout Code
