@@ -17,9 +17,11 @@ jobs:
         xcode-select -p
         find /Applications -maxdepth 1 -type d -name "Xcode*" ! -name "Xcode_15.4*.app" -exec sudo rm -rf {} +
         sudo du -sh /System/Volumes/Data/Applications/* 2>/dev/null
-        sudo rm -rf /System/Volumes/Data/Users/runner/Library/Android/*
-        sudo rm -rf /System/Volumes/Data/Users/runner/Library/Developer/CoreSimulator 
+        sudo rm -rf /System/Volumes/Data/Users/runner/Library/Android/* || true
+        sudo rm -rf /System/Volumes/Data/Users/runner/Library/Developer/CoreSimulator || true
+        sudo du -sh /System/Volumes/Data/Users/runner/Library/* 2>/dev/null || true
         sudo du -h
+        exit 1
 
     # Step 1: Checkout Code
     - name: Checkout code
