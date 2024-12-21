@@ -12,9 +12,10 @@ jobs:
 
     steps:
 
-    - name: Disk Usage
+    - name: Disk cleanup
       run: |
-        sudo du -sh /* 2>/dev/null
+        # sudo du -sh /* 2>/dev/null
+        sudo du -sh /System/* 2>/dev/null
         exit 1
 
     # Step 1: Checkout Code
@@ -130,10 +131,9 @@ jobs:
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
                    -allowProvisioningUpdates -quiet
       
-    - name: Handle failure
+    - name: Disk usage
       if: always()
       run: |
-        echo "The previous step failed. Handling failure."
         df -h
 
     # Step 13: Install Fastlane
