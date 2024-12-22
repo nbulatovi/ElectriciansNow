@@ -26,6 +26,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
       
+    - name: Organize source dirs
+      run: |
+        rsync -av --exclude="src" $GITHUB_WORKSPACE/ src/
+
     # Step 2: Set up Python
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -74,7 +78,6 @@ jobs:
     # Step 9: Create app and copy source files
     - name: Create app and copy source files
       run: |
-        rsync -av --exclude="src" $GITHUB_WORKSPACE/ src/
         toolchain create myapp src/
         echo "Directory structure after setup:"
         tree src/ -d
@@ -93,8 +96,6 @@ jobs:
 
     # Step 12: Build and Archive iOS App
     - name: Build and Archive iOS App 1/2
-      env:
-        PROFILE_UUID: "d32433c2-c4e5-4c06-be04-421c96129209"
       run: |
         cd myapp-ios
         df -h
@@ -127,8 +128,6 @@ jobs:
 
     # Step 12: Build and Archive iOS App
     - name: Build and Archive iOS App 2/2
-      env:
-        PROFILE_UUID: "d32433c2-c4e5-4c06-be04-421c96129209"
       run: |
         cd myapp-ios
         df -h
