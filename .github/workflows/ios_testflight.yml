@@ -28,7 +28,7 @@ jobs:
       
     - name: Organize source dirs
       run: |
-        rsync -av --exclude="src" $GITHUB_WORKSPACE/ src/
+        rsync -av --exclude="src" --exclude=".git" $GITHUB_WORKSPACE/ src/
 
     # Step 2: Set up Python
     - name: Set up Python
