@@ -8,7 +8,7 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-    timeout-minutes: 2000 # Increase this timeout value as needed
+    timeout-minutes: 300 # Increase this timeout value as needed
 
     steps:
 
@@ -74,9 +74,10 @@ jobs:
     # Step 9: Create app and copy source files
     - name: Create app and copy source files
       run: |
-        toolchain create myapp .
-        echo "kivy-ios Directory structure after setup:"
-        # tree -d
+        rsync -av --exclude="src" $GITHUB_WORKSPACE/ src/
+        toolchain create myapp src/
+        echo "Directory structure after setup:"
+        tree src/ -d
 
     # Step 10: Build the App and Generate Xcode Project
     - name: Build and Generate Xcode Project
@@ -88,7 +89,7 @@ jobs:
     # Step 11: Copy App Icon Set into Xcode Project
     - name: Add App Icons
       run: |
-        cp $GITHUB_WORKSPACE/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
+        cp src/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
 
     # Step 12: Build and Archive iOS App
     - name: Build and Archive iOS App 1/2
@@ -134,7 +135,7 @@ jobs:
         echo ------------------------------------------------------------------------------------
         xcodebuild -exportArchive \
                    -archivePath $PWD/build/myapp.xcarchive \
-                   -exportOptionsPlist $GITHUB_WORKSPACE/ExportOptions.plist \
+                   -exportOptionsPlist $GITHUB_WORKSPACE/src/ExportOptions.plist \
                    -exportPath $PWD/build \
                    -destination "generic/platform=iOS" \
                    CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
