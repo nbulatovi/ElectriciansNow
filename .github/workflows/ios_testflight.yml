@@ -8,8 +8,7 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-    timeout-minutes: 300 # Increase this timeout value as needed
-
+    timeout-minutes: 600
     steps:
 
     - name: Disk cleanup
