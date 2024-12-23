@@ -8,7 +8,7 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-    timeout-minutes: 60 # Increase this timeout value as needed
+    timeout-minutes: 90 # Increase this timeout value as needed
 
     steps:
 
@@ -136,19 +136,20 @@ jobs:
     - name: Archive iOS App
       run: |
         cd myapp-ios
-        df -h
+
         echo ------------------------------------------------------------------------------------
+
+        # Perform the archive export with proper provisioning
         xcodebuild -exportArchive \
-                   -archivePath $PWD/build/myapp.xcarchive \
-                   -exportOptionsPlist $GITHUB_WORKSPACE/src/ExportOptions.plist \
-                   -exportPath $PWD/build \
-                   -destination "generic/platform=iOS" \
-                   CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
-                   PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
-                   DEVELOPMENT_TEAM=MNGTD992QD \
-                   PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
-                   -allowProvisioningUpdates
-      
+                  -archivePath $PWD/build/myapp.xcarchive \
+                  -exportOptionsPlist $GITHUB_WORKSPACE/src/ExportOptions.plist \
+                  -exportPath $PWD/build \
+                  CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
+                  PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
+                  DEVELOPMENT_TEAM=MNGTD992QD \
+                  PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
+                  -allowProvisioningUpdates
+
     - name: Disk usage
       if: always()
       run: |
