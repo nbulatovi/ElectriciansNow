@@ -130,7 +130,6 @@ jobs:
                    PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
                    DEVELOPMENT_TEAM=MNGTD992QD \
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
-                   ONLY_ACTIVE_ARCH=YES \
                    INDEX_ENABLE=NO \
                    -allowProvisioningUpdates
 
@@ -145,10 +144,6 @@ jobs:
                   -archivePath $PWD/build/myapp.xcarchive \
                   -exportOptionsPlist $GITHUB_WORKSPACE/src/ExportOptions.plist \
                   -exportPath $PWD/build \
-                  CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
-                  PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
-                  DEVELOPMENT_TEAM=MNGTD992QD \
-                  PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
                   -allowProvisioningUpdates
 
     # Step 13: Install Fastlane
