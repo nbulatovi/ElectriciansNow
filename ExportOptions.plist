@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>ad-hoc</string>
+    <string>app-store</string>
     <key>signingStyle</key>
     <string>manual</string>
     <key>compileBitcode</key>
-    <false/>
+    <true/>
     <key>stripSwiftSymbols</key>
     <true/>
     <key>teamID</key>
