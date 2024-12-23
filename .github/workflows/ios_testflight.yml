@@ -76,7 +76,6 @@ jobs:
         # Allow codesign to access the signing identity without prompts
         security set-key-partition-list -S apple-tool:,apple: -s -k temp-password build.keychain
 
-
     - name: Install Provisioning Profile
       env:
         APPLE_PROFILE: ${{ secrets.APPLE_PROFILE }}
@@ -114,7 +113,7 @@ jobs:
         sed -i '' '/CODE_SIGN_IDENTITY/c\
                           CODE_SIGN_STYLE = Manual;\
                           CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" ;\
-                          PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209; \
+                          PROVISIONING_PROFILE_SPECIFIER=17253cd9-c677-4796-ae9e-3fc912d68a58; \
                           DEVELOPMENT_TEAM=MNGTD992QD ;\
                           PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now;
         ' myapp.xcodeproj/project.pbxproj
@@ -127,7 +126,7 @@ jobs:
                    -archivePath $PWD/build/myapp.xcarchive archive \
                    -destination "generic/platform=iOS" \
                    CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
-                   PROVISIONING_PROFILE_SPECIFIER=d32433c2-c4e5-4c06-be04-421c96129209 \
+                   PROVISIONING_PROFILE_SPECIFIER=17253cd9-c677-4796-ae9e-3fc912d68a58 \
                    DEVELOPMENT_TEAM=MNGTD992QD \
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
                    INDEX_ENABLE=NO \
