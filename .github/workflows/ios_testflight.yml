@@ -39,10 +39,11 @@ jobs:
         brew install autoconf automake libtool tree rsync
         pip install Cython==3.0.0
 
-    - name: Install and Build Kivy
+    - name: Install Requirements and Build Kivy
       env:
         ACTIONS_STEP_DEBUG: false
       run: |
+        pip install -r requirements.txt
         pip install kivy-ios
         toolchain build kivy
 
