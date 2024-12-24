@@ -4,18 +4,22 @@
 <dict>
     <key>method</key>
     <string>app-store-connect</string>
-    <key>signingStyle</key>
-    <string>manual</string>
-    <key>compileBitcode</key>
-    <true/>
-    <key>stripSwiftSymbols</key>
-    <true/>
     <key>teamID</key>
     <string>MNGTD992QD</string>
+    <key>compileBitcode</key>
+    <true/>
+	<key>uploadBitcode</key>
+	<true/>
+	<key>uploadSymbols</key>
+	<false/>
+    <key>signingStyle</key>
+    <string>manual</string>
+	<key>signingCertificate</key>
+	<string>iPhone Distribution: SNS Location (MNGTD992QD)</string>
     <key>provisioningProfiles</key>
     <dict>
         <key>com.snslocation.electricians-now</key>
-        <string>17253cd9-c677-4796-ae9e-3fc912d68a58</string>
+        <string>Electricians NOW</string>
     </dict>
 </dict>
 </plist>
