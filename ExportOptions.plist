@@ -9,7 +9,7 @@
     <key>compileBitcode</key>
     <true/>
 	<key>uploadBitcode</key>
-	<true/>
+	<false/>
 	<key>uploadSymbols</key>
 	<false/>
     <key>signingStyle</key>
