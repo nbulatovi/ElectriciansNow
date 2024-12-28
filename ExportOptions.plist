@@ -10,15 +10,17 @@
     <true/>
 	<key>uploadBitcode</key>
 	<false/>
-  <key>uploadSymbols</key>
-  <false/>
-  <key>signingStyle</key>
-  <string>manual</string>
+    <key>destination</key>
+    <string>upload</string>
+    <key>uploadSymbols</key>
+    <false/>
+    <key>signingStyle</key>
+    <string>manual</string>
 	<key>signingCertificate</key>
 	<string>iPhone Distribution: SNS Location (MNGTD992QD)</string>
     <key>provisioningProfiles</key>
     <dict>
-        <key>myapp.app</key>
+        <key>*</key>
         <string>Electricians NOW</string>
     </dict>
 </dict>

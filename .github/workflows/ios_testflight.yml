@@ -143,8 +143,6 @@ jobs:
                   -archivePath $PWD/build/myapp.xcarchive \
                   -exportOptionsPlist $GITHUB_WORKSPACE/src/ExportOptions.plist \
                   -exportPath $PWD/build \
-                  CODE_SIGN_STYLE=Manual \
-                  PROVISIONING_PROFILE_SPECIFIER=17253cd9-c677-4796-ae9e-3fc912d68a58 \
                   -allowProvisioningUpdates
 
     # Step 13: Install Fastlane
