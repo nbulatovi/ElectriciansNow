@@ -8,16 +8,14 @@
     <string>MNGTD992QD</string>
     <key>compileBitcode</key>
     <true/>
-	<key>uploadBitcode</key>
-	<false/>
-    <key>destination</key>
-    <string>upload</string>
+    <key>uploadBitcode</key>
+    <false/>
     <key>uploadSymbols</key>
     <false/>
     <key>signingStyle</key>
     <string>manual</string>
-	<key>signingCertificate</key>
-	<string>iPhone Distribution: SNS Location (MNGTD992QD)</string>
+    <key>signingCertificate</key>
+    <string>iPhone Distribution: SNS Location (MNGTD992QD)</string>
     <key>provisioningProfiles</key>
     <dict>
         <key>*</key>
