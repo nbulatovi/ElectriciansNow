@@ -31,7 +31,6 @@ jobs:
         APPLE_PASS: ${{ secrets.APPLE_PASS }}
       run: |
         rsync -av --exclude="src" --exclude=".git" $GITHUB_WORKSPACE/ src/
-        xcrun altool --list-providers -u "$APPLE_USER" -p "$APPLE_PASS"
 
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -139,9 +138,8 @@ jobs:
     - name: Export iOS App
       run: |
         cd myapp-ios
-
         echo ------------------------------------------------------------------------------------
-
+        xcrun altool --list-providers -u "$APPLE_USER" -p "$APPLE_PASS"
         # Perform the archive export with proper provisioning
         xcodebuild -exportArchive \
                   -archivePath $PWD/build/myapp.xcarchive \
