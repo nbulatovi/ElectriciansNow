@@ -104,9 +104,10 @@ jobs:
         toolchain create myapp src/ 
         cd myapp-ios
         tree -a
+        grep -r -A 3 -B 3 "org.kivy.myapp" .
         /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.snslocation.electricians-now" myapp-Info.plist
-        sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = .*;/PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;/' myapp.xcodeproj/project.pbxproj
-        grep -r "org.kivy.myapp" .
+        # sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = .*;/PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;/' myapp.xcodeproj/project.pbxproj
+        grep -r -A 3 -B 3 "org.kivy.myapp" .
 
     ############################################################################
     - name: Build and Generate Xcode Project
