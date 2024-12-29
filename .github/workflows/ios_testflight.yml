@@ -132,33 +132,26 @@ jobs:
                    INDEX_ENABLE=NO \
                    -allowProvisioningUpdates
 
-    - name: Export iOS App
-      env:
-        APPLE_USER: ${{ secrets.APPLE_USER }}
-        APPLE_PASS: ${{ secrets.APPLE_PASS }}
-      run: |
-        cd myapp-ios
-        xcrun altool --list-providers -u "$APPLE_USER" -p "$APPLE_PASS"
-        echo ------------------------------------------------------------------------------------
-        # Perform the archive export with proper provisioning
-        xcodebuild -exportArchive \
-                  -archivePath $PWD/build/myapp.xcarchive \
-                  -exportOptionsPlist $GITHUB_WORKSPACE/src/ExportOptions.plist \
-                  -exportPath $PWD/build \
-                  -allowProvisioningUpdates
-
     # Step 13: Install Fastlane
     - name: Install Fastlane
       run: |
         gem install fastlane
 
-    # Step 14: Upload to TestFlight
-    - name: Upload to TestFlight
+    # Step 14: Build and Export using Fastlane
+    - name: Build and Export App
       env:
         APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
       run: |
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
-        fastlane pilot upload --api_key_path api_key.json --team_id MNGTD992QD --ipa myapp-ios/build/myapp.ipa --app_identifier com.snslocation.electricians-now
+
+        # Use Fastlane to build and export the app
+        fastlane run build_app \
+          workspace:myapp-ios/myapp-ios.xcworkspace \
+          scheme:myapp-ios \
+          export_method:app-store \
+          export_team_id:MNGTD992QD \
+          output_directory:myapp-ios/build \
+          output_name:myapp.ipa
 
     # Step 15: Upload IPA Artifact
     - name: Upload IPA Artifact
@@ -167,10 +160,24 @@ jobs:
         name: myapp-ipa
         path: myapp-ios/build/myapp.ipa
 
-    # Step 16: Upload to App Store
-    - name: Upload to App Store
+    # Step 16: Upload to TestFlight
+    - name: Upload to TestFlight
       env:
         APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
       run: |
-        echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
-        fastlane deliver --api_key_path api_key.json --app_identifier com.snslocation.electricians-now --team_id MNGTD992QD --ipa myapp-ios/build/myapp.ipa
+        fastlane pilot upload \
+          --api_key_path api_key.json \
+          --team_id MNGTD992QD \
+          --ipa myapp-ios/build/myapp.ipa \
+          --app_identifier com.snslocation.electricians-now
+
+    # Step 17: Upload to App Store Connect
+    - name: Upload to App Store Connect
+      env:
+        APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
+      run: |
+        fastlane deliver \
+          --api_key_path api_key.json \
+          --app_identifier com.snslocation.electricians-now \
+          --team_id MNGTD992QD \
+          --ipa myapp-ios/build/myapp.ipa
