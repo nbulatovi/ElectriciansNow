@@ -87,7 +87,7 @@ jobs:
       run: |
         gem install fastlane
         mkdir -p ./match/repo.git && git init --bare ./match/repo.git
-        xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
+        # xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
         fastlane run match type:appstore app_identifier:com.snslocation.electricians-now team_id:MNGTD992QD
 
     - name: Install Requirements and Build Kivy
