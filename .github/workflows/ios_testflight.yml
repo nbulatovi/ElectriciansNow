@@ -44,6 +44,7 @@ jobs:
       run: |
         brew install autoconf automake libtool tree rsync
         pip install Cython==3.0.0
+        pip install -r requirements.txt
 
     ############################################################################
     - name: Import Code Signing Certificate
@@ -77,7 +78,7 @@ jobs:
         security set-key-partition-list -S apple-tool:,apple: -s -k temp-password build.keychain
 
     ############################################################################
-    - name: Install Fastlane and Run Match
+    - name: Fastlane Match
       env:
         APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
@@ -90,11 +91,10 @@ jobs:
         fastlane run match --verbose
 
     ############################################################################
-    - name: Install Requirements and Build Kivy
+    - name: Kivy Install
       env:
         ACTIONS_STEP_DEBUG: false
       run: |
-        pip install -r requirements.txt
         pip install kivy-ios
         toolchain build kivy
 
@@ -118,7 +118,7 @@ jobs:
         cp src/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
 
     ############################################################################
-    - name: Build and Export App
+    - name: Fastlane Build and Export App
       env:
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
         FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
@@ -133,14 +133,14 @@ jobs:
         fastlane build --verbose
 
     ############################################################################
-    - name: Upload IPA Artifact
+    - name: IPA Artifact Upload
       uses: actions/upload-artifact@v3
       with:
         name: myapp-ipa
         path: myapp-ios/build/myapp.ipa
 
     ############################################################################
-    - name: Upload to TestFlight
+    - name: TestFlight Upload
       run: |
         fastlane pilot upload \
           --api_key_path api_key.json \
@@ -149,7 +149,7 @@ jobs:
           --app_identifier com.snslocation.electricians-now
 
     ############################################################################
-    - name: Upload to App Store Connect
+    - name: App Store Connect Upload
       run: |
         fastlane deliver \
           --api_key_path api_key.json \
