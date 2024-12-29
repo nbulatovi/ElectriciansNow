@@ -12,7 +12,7 @@ platform :ios do
     # Build the app using gym
     gym(
       scheme: "myapp", # Scheme name
-      workspace: "myapp-ios/", # Workspace path
+      workspace: "myapp-ios/myapp.xcodeproj/project.xcworkspace", # Workspace path
       configuration: "Release", # Use "Debug" for development builds
       export_method: "app-store", # Use "ad-hoc" or "development" if needed
       export_team_id: "MNGTD992QD", # Team ID for signing
