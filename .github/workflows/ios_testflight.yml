@@ -27,6 +27,7 @@ jobs:
       
     - name: Organize Source Dirs
       run: |
+        mkdir -p src/
         rsync -av --exclude="src" --exclude=".git" $GITHUB_WORKSPACE/ src/
 
     - name: Setup Python
@@ -81,8 +82,9 @@ jobs:
     - name: Install Fastlane
       run: |
         gem install fastlane
-        fastlane match init
-        fastlane run match type:appstore app_identifier:com.snslocation.electricians-now team_id:MNGTD992QD
+        mkdir -p ./match/repo.git && git init --bare ./match/repo.git
+        fastlane match init --git_url ./match/repo.git
+        fastlane run match type:appstore app_identifier:com.snslocation.electricians-now team_id:MNGTD992QD git_url=./match/repo.git
 
     - name: Install Requirements and Build Kivy
       env:
@@ -108,36 +110,6 @@ jobs:
       run: |
         cp src/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
 
-    - name: Build and Archive iOS App
-      run: |
-        cd myapp-ios
-        df -h
-
-        # Update deployment target in the Xcode project
-        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 16.1/' myapp.xcodeproj/project.pbxproj
-        # Update code signing
-        sed -i '' '/CODE_SIGN_IDENTITY/c\
-                          CODE_SIGN_STYLE = Manual;\
-                          CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" ;\
-                          PROVISIONING_PROFILE_SPECIFIER=17253cd9-c677-4796-ae9e-3fc912d68a58; \
-                          DEVELOPMENT_TEAM=MNGTD992QD ;\
-                          PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now;
-        ' myapp.xcodeproj/project.pbxproj
-        cat myapp.xcodeproj/project.pbxproj
-        
-        echo ------------------------------------------------------------------------------------
-        xcodebuild -workspace myapp.xcodeproj/project.xcworkspace \
-                   -scheme myapp \
-                   -configuration Release \
-                   -archivePath $PWD/build/myapp.xcarchive archive \
-                   -destination "generic/platform=iOS" \
-                   CODE_SIGN_IDENTITY="iPhone Distribution: SNS Location (MNGTD992QD)" \
-                   PROVISIONING_PROFILE_SPECIFIER=17253cd9-c677-4796-ae9e-3fc912d68a58 \
-                   DEVELOPMENT_TEAM=MNGTD992QD \
-                   PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
-                   INDEX_ENABLE=NO \
-                   -allowProvisioningUpdates
-
     # Step 14: Build and Export using Fastlane
     - name: Build and Export App
       env:
@@ -152,7 +124,8 @@ jobs:
           export_method:app-store \
           export_team_id:MNGTD992QD \
           output_directory:myapp-ios/build \
-          output_name:myapp.ipa
+          output_name:myapp.ipa \
+          clean:true
 
     # Step 15: Upload IPA Artifact
     - name: Upload IPA Artifact
