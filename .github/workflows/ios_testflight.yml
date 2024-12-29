@@ -83,13 +83,11 @@ jobs:
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
         FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
         MATCH_PASSWORD: ${{ secrets.APPLE_PASS }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        FASTLANE_MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.GITHUB_TOKEN }}
       run: |
         gem install fastlane
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
         mkdir -p ./match/repo.git && git init --bare ./match/repo.git
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
         fastlane run match --verbose
 
     ############################################################################
@@ -132,14 +130,7 @@ jobs:
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 16.1/' myapp-ios/myapp.xcodeproj/project.pbxproj
       
         # Use Fastlane to build and export the app
-        fastlane run build_app \
-          workspace:myapp-ios/myapp.xcodeproj/project.xcworkspace \
-          scheme:myapp-ios \
-          export_method:app-store \
-          export_team_id:MNGTD992QD \
-          output_directory:myapp-ios/build \
-          output_name:myapp.ipa \
-          clean:true
+        fastlane build
 
     ############################################################################
     - name: Upload IPA Artifact
