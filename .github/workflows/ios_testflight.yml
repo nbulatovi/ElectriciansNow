@@ -81,20 +81,20 @@ jobs:
 
     - name: Install Fastlane
       env:
-        APP_STORE_API_KEY: ${{ secrets.API_KEY_P8 }}
+        APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
         FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
         MATCH_PASSWORD: ${{ secrets.APPLE_PASS }}
       run: |
         gem install fastlane
-        echo "$APP_STORE_API_KEY" | base64 --decode > api_key.p8
+        echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
         mkdir -p ./match/repo.git && git init --bare ./match/repo.git
         xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
         fastlane run match \
           type:appstore \
           app_identifier:com.snslocation.electricians-now \
           team_id:MNGTD992QD
-           
+
     - name: Install Requirements and Build Kivy
       env:
         ACTIONS_STEP_DEBUG: false
@@ -147,7 +147,7 @@ jobs:
     - name: Upload to TestFlight
       run: |
         fastlane pilot upload \
-          --api_key_path api_key.p8 \
+          --api_key_path api_key.json \
           --team_id MNGTD992QD \
           --ipa myapp-ios/build/myapp.ipa \
           --app_identifier com.snslocation.electricians-now
@@ -156,7 +156,7 @@ jobs:
     - name: Upload to App Store Connect
       run: |
         fastlane deliver \
-          --api_key_path api_key.p8 \
+          --api_key_path api_key.json \
           --app_identifier com.snslocation.electricians-now \
           --team_id MNGTD992QD \
           --ipa myapp-ios/build/myapp.ipa
