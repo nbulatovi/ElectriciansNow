@@ -21,7 +21,7 @@ platform :ios do
       xcargs: "DEVELOPMENT_TEAM=MNGTD992QD",
       export_options: {
         provisioningProfiles: {
-          "com.snslocation.electricians-now" => "match AppStore com.snslocation.electricians-now" # Adjust based on your provisioning profile
+          "*" => "match AppStore com.snslocation.electricians-now" # Adjust based on your provisioning profile
         }
       }
     )
