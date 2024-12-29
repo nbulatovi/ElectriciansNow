@@ -4,4 +4,3 @@ type "appstore"
 app_identifier ["com.snslocation.electricians-now"]
 team_id "MNGTD992QD"
 api_key_path "api_key.json" 
-ipa "myapp-ios/build/myapp.ipa"
