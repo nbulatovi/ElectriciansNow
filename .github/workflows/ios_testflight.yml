@@ -123,13 +123,14 @@ jobs:
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
         FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
         MATCH_PASSWORD: ${{ secrets.APPLE_PASS }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
 
         # Update deployment target in the Xcode project
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 16.1/' myapp-ios/myapp.xcodeproj/project.pbxproj
       
         # Use Fastlane to build and export the app
-        fastlane build
+        fastlane build --verbose
 
     ############################################################################
     - name: Upload IPA Artifact
