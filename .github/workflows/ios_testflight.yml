@@ -12,6 +12,7 @@ jobs:
 
     steps:
 
+    ############################################################################
     - name: Disk Cleanup
       run: |
         xcode-select -p
@@ -22,24 +23,29 @@ jobs:
         # sudo du -sh /System/Volumes/Data/Users/runner/Library/* 2>/dev/null || true
         df -h
 
+    ############################################################################
     - name: Checkout Code
       uses: actions/checkout@v3
       
+    ############################################################################
     - name: Organize Source Dirs
       run: |
         mkdir -p src/
         rsync -av --exclude="src" --exclude=".git" $GITHUB_WORKSPACE/ src/
 
+    ############################################################################
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
+    ############################################################################
     - name: Install Build Tools
       run: |
         brew install autoconf automake libtool tree rsync
         pip install Cython==3.0.0
 
+    ############################################################################
     - name: Import Code Signing Certificate
       env:
         APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -69,16 +75,7 @@ jobs:
         # Allow codesign to access the signing identity without prompts
         security set-key-partition-list -S apple-tool:,apple: -s -k temp-password build.keychain
 
-    - name: Install Provisioning Profile
-      env:
-        APPLE_PROFILE: ${{ secrets.APPLE_PROFILE }}
-      run: |
-        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-        echo "$APPLE_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
-        ls -al ~/Library/MobileDevice/Provisioning\ Profiles/*
-        security find-identity -p codesigning
-        security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
-
+    ############################################################################
     - name: Install Fastlane
       env:
         APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
@@ -95,6 +92,7 @@ jobs:
           app_identifier:com.snslocation.electricians-now \
           team_id:MNGTD992QD
 
+    ############################################################################
     - name: Install Requirements and Build Kivy
       env:
         ACTIONS_STEP_DEBUG: false
@@ -103,22 +101,26 @@ jobs:
         pip install kivy-ios
         toolchain build kivy
 
+    ############################################################################
     - name: Create App
       run: |
         toolchain create myapp src/
         echo "Directory structure after setup:"
         tree src/ -d
 
+    ############################################################################
     - name: Build and Generate Xcode Project
       run: |
         toolchain update myapp-ios
         cd myapp-ios
         # tree -d
 
+    ############################################################################
     - name: Add App Icons
       run: |
         cp src/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
 
+    ############################################################################
     - name: Build and Export App
       env:
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
@@ -135,12 +137,14 @@ jobs:
           output_name:myapp.ipa \
           clean:true
 
+    ############################################################################
     - name: Upload IPA Artifact
       uses: actions/upload-artifact@v3
       with:
         name: myapp-ipa
         path: myapp-ios/build/myapp.ipa
 
+    ############################################################################
     - name: Upload to TestFlight
       run: |
         fastlane pilot upload \
@@ -149,6 +153,7 @@ jobs:
           --ipa myapp-ios/build/myapp.ipa \
           --app_identifier com.snslocation.electricians-now
 
+    ############################################################################
     - name: Upload to App Store Connect
       run: |
         fastlane deliver \
