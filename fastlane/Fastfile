@@ -6,7 +6,6 @@ platform :ios do
     # Synchronize signing certificates and profiles using match
     match(
       type: "appstore", # Change to "development" or "adhoc" if needed
-      readonly: false    # Use readonly mode if you're not modifying profiles
     )
 
     # Build the app using gym
@@ -19,6 +18,11 @@ platform :ios do
       output_directory: "myapp-ios/build", # Output directory for the IPA
       output_name: "myapp.ipa", # Output file name
       xcargs: "DEVELOPMENT_TEAM=MNGTD992QD"
+      export_options: {
+        provisioningProfiles: {
+          "com.snslocation.electricians-now" => "match AppStore com.snslocation.electricians-now 1735492452"
+        }
+      }
     )
   end
 end
