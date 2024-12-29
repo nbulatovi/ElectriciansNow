@@ -18,6 +18,7 @@ platform :ios do
       output_directory: "myapp-ios/build", # Output directory for the IPA
       output_name: "myapp.ipa", # Output file name
       xcargs: "DEVELOPMENT_TEAM=MNGTD992QD",
+      xcargs: "-allowProvisioningUpdates",
       export_options: {
         provisioningProfiles: {
           "com.snslocation.electricians-now" => "match AppStore com.snslocation.electricians-now 1735492452"
