@@ -12,13 +12,14 @@ platform :ios do
     # Build the app using gym
     gym(
       scheme: "myapp", # Scheme name
-      workspace: "myapp-ios/myapp.xcodeproj/project.xcworkspace", # Workspace path
+      team_id: "MNGTD992QD", # Team ID for signing
+      workspace: "myapp-ios/", # Workspace path
       configuration: "Release", # Use "Debug" for development builds
       export_method: "app-store", # Use "ad-hoc" or "development" if needed
       export_team_id: "MNGTD992QD", # Team ID for signing
       output_directory: "myapp-ios/build", # Output directory for the IPA
       output_name: "myapp.ipa", # Output file name
-      clean: true, # Clean build before building
+      # xcargs: "DEVELOPMENT_TEAM=MNGTD992QD",
       export_options: {
         provisioningProfiles: {
           "com.snslocation.electricians-now" => "match AppStore com.snslocation.electricians-now" # Adjust based on your provisioning profile
