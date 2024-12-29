@@ -80,6 +80,8 @@ jobs:
         security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
 
     - name: Install Fastlane
+      env:
+        MATCH_PASSWORD: password
       run: |
         gem install fastlane
         mkdir -p ./match/repo.git && git init --bare ./match/repo.git
@@ -113,6 +115,7 @@ jobs:
     - name: Build and Export App
       env:
         APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
+        MATCH_PASSWORD: password
       run: |
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
 
