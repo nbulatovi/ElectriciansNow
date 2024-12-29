@@ -89,6 +89,7 @@ jobs:
     - name: Install Fastlane
       run: |
         gem install fastlane
+        fastlane match init
         fastlane run match type:appstore app_identifier:com.snslocation.electricians-now team_id:MNGTD992QD
 
     - name: Create App
