@@ -83,8 +83,9 @@ jobs:
       run: |
         gem install fastlane
         mkdir -p ./match/repo.git && git init --bare ./match/repo.git
-        fastlane match init --git_url ./match/repo.git
-        fastlane run match type:appstore app_identifier:com.snslocation.electricians-now team_id:MNGTD992QD git_url=./match/repo.git
+        export MATCH_GIT_URL=./match/repo.git
+        fastlane match init
+        fastlane run match type:appstore app_identifier:com.snslocation.electricians-now team_id:MNGTD992QD
 
     - name: Install Requirements and Build Kivy
       env:
