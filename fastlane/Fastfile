@@ -21,7 +21,6 @@ platform :ios do
       xcargs: "DEVELOPMENT_TEAM=MNGTD992QD",
       export_options: {
         provisioningProfiles: {
-          "com.snslocation.electricians-now" => "match AppStore com.snslocation.electricians-now",
           "org.kivy.myapp" => "match AppStore com.snslocation.electricians-now"
         }
       }
