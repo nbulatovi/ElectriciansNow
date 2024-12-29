@@ -86,6 +86,11 @@ jobs:
         security find-identity -p codesigning
         security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/myapp.mobileprovision
 
+    - name: Install Fastlane
+      run: |
+        gem install fastlane
+        fastlane run match type:appstore app_identifier:com.snslocation.electricians-now team_id:MNGTD992QD
+
     - name: Create App
       run: |
         toolchain create myapp src/
@@ -131,11 +136,6 @@ jobs:
                    PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
                    INDEX_ENABLE=NO \
                    -allowProvisioningUpdates
-
-    # Step 13: Install Fastlane
-    - name: Install Fastlane
-      run: |
-        gem install fastlane
 
     # Step 14: Build and Export using Fastlane
     - name: Build and Export App
