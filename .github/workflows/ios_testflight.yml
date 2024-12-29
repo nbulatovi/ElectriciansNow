@@ -146,9 +146,9 @@ jobs:
 
         # Use Fastlane to build and export the app
         fastlane run build_app \
-          workspace:myapp-ios/myapp-ios.xcworkspace \
+          workspace:myapp-ios/myapp.xcodeproj/project.xcworkspace \
           scheme:myapp-ios \
-          export_method:app-store \
+          export_method:app-store-connect \
           export_team_id:MNGTD992QD \
           output_directory:myapp-ios/build \
           output_name:myapp.ipa
