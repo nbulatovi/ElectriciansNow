@@ -1,0 +1,5 @@
+git_url "./match/repo.git"
+storage_mode "git" # Set the storage mode explicitly
+type "appstore"
+app_identifier ["com.snslocation.electricians-now"]
+team_id "MNGTD992QD"
