@@ -102,15 +102,13 @@ jobs:
     - name: Create App
       run: |
         toolchain create myapp src/
-        echo "Directory structure after setup:"
-        tree src/ -d
 
     ############################################################################
     - name: Build and Generate Xcode Project
       run: |
         toolchain update myapp-ios
         cd myapp-ios
-        # tree -d
+        tree -a
 
     ############################################################################
     - name: Add App Icons
