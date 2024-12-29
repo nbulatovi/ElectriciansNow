@@ -119,7 +119,6 @@ jobs:
       run: |
         cp src/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
 
-    # Step 14: Build and Export using Fastlane
     - name: Build and Export App
       env:
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
@@ -136,14 +135,12 @@ jobs:
           output_name:myapp.ipa \
           clean:true
 
-    # Step 15: Upload IPA Artifact
     - name: Upload IPA Artifact
       uses: actions/upload-artifact@v3
       with:
         name: myapp-ipa
         path: myapp-ios/build/myapp.ipa
 
-    # Step 16: Upload to TestFlight
     - name: Upload to TestFlight
       run: |
         fastlane pilot upload \
@@ -152,7 +149,6 @@ jobs:
           --ipa myapp-ios/build/myapp.ipa \
           --app_identifier com.snslocation.electricians-now
 
-    # Step 17: Upload to App Store Connect
     - name: Upload to App Store Connect
       run: |
         fastlane deliver \
