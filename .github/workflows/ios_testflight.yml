@@ -16,10 +16,10 @@ jobs:
       run: |
         xcode-select -p
         # find /Applications -maxdepth 1 -type d -name "Xcode*" ! -name "Xcode_15.4*.app" -exec sudo rm -rf {} +
-        sudo du -sh /System/Volumes/Data/Applications/* 2>/dev/null
-        sudo rm -rf /System/Volumes/Data/Users/runner/Library/Android/* || true
-        sudo rm -rf /System/Volumes/Data/Users/runner/Library/Developer/CoreSimulator || true
-        sudo du -sh /System/Volumes/Data/Users/runner/Library/* 2>/dev/null || true
+        # sudo du -sh /System/Volumes/Data/Applications/* 2>/dev/null
+        # sudo rm -rf /System/Volumes/Data/Users/runner/Library/Android/* || true
+        # sudo rm -rf /System/Volumes/Data/Users/runner/Library/Developer/CoreSimulator || true
+        # sudo du -sh /System/Volumes/Data/Users/runner/Library/* 2>/dev/null || true
         df -h
 
     - name: Checkout Code
@@ -87,7 +87,7 @@ jobs:
       run: |
         gem install fastlane
         mkdir -p ./match/repo.git && git init --bare ./match/repo.git
-        xcrun altool --list-providers -u "$APPLE_USER" -p "$APPLE_PASS"
+        xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASS"
         fastlane run match type:appstore app_identifier:com.snslocation.electricians-now team_id:MNGTD992QD
 
     - name: Install Requirements and Build Kivy
