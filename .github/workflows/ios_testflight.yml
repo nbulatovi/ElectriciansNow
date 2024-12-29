@@ -102,6 +102,9 @@ jobs:
     - name: Create App
       run: |
         toolchain create myapp src/ 
+        # Set the App ID (Bundle Identifier)
+        PLIST_PATH="myapp-ios/myapp/Info.plist"
+        /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.snslocation.electricians-now" $PLIST_PATH
 
     ############################################################################
     - name: Build and Generate Xcode Project
