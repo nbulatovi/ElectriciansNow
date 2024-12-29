@@ -46,11 +46,22 @@ jobs:
         pip install Cython==3.0.0
 
     ############################################################################
-    - name: Create Temporary Keychain
+    - name: Import Code Signing Certificate
+      env:
+        APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        APPLE_PRIVATE: ${{ secrets.APPLE_PRIVATE }}
       run: |
+
+        # Decode and save certificate and private key
+        echo "$APPLE_CERTIFICATE" | base64 --decode > ios_distribution.cer
+        echo "$APPLE_PRIVATE" | base64 --decode > ios_private_key.pem
 
         # Create a temporary keychain
         security create-keychain -p temp-password build.keychain
+
+        # Import certificate and private key into the keychain
+        security import ios_distribution.cer -k build.keychain -T /usr/bin/codesign
+        security import ios_private_key.pem -k build.keychain -T /usr/bin/codesign
 
         # Add the keychain to the search list and prioritize it
         security list-keychains -s build.keychain
