@@ -1,6 +1,6 @@
 type "appstore"
 storage_mode "git" # Set the storage mode explicitly
-git_url "./match/repo.git"
+git_url "https://github.com/nbulatovi/ElectriciansNow.git"
 team_id "MNGTD992QD"
 app_identifier ["com.snslocation.electricians-now"]
 api_key_path "api_key.json" 
