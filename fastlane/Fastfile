@@ -6,7 +6,7 @@ platform :ios do
     # Synchronize signing certificates and profiles using match
     match(
       type: "appstore", # Change to "development" or "adhoc" if needed
-      readonly: true    # Use readonly mode if you're not modifying profiles
+      readonly: false    # Use readonly mode if you're not modifying profiles
     )
 
     # Build the app using gym
