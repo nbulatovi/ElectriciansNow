@@ -90,7 +90,7 @@ jobs:
         mkdir -p ./match/repo.git && git init --bare ./match/repo.git
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        fastlane run match
+        fastlane run match --verbose
 
     ############################################################################
     - name: Install Requirements and Build Kivy
