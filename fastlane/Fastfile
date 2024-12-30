@@ -18,7 +18,7 @@ platform :ios do
       output_directory: "myapp-ios/build", # Output directory for the IPA
       output_name: "myapp.ipa", # Output file name
       xcargs: "DEVELOPMENT_TEAM=MNGTD992QD -allowProvisioningUpdates",
-      export_options("./ExportOptions.plist")
+      export_options: "./ExportOptions.plist"
     )
   end
 end
