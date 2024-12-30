@@ -21,7 +21,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>*</key>
-        <string>Electricians NOW</string>
+        <string>match AppStore com.snslocation.electricians-now 1735492452</string>
     </dict>
 </dict>
 </plist>

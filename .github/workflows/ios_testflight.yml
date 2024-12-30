@@ -128,7 +128,10 @@ jobs:
 
         # Update deployment target in the Xcode project
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 16.1/' myapp-ios/myapp.xcodeproj/project.pbxproj
-      
+
+        # Login
+        xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
+
         # Use Fastlane to build and export the app
         fastlane build --verbose
 
