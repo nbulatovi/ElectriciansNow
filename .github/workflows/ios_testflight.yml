@@ -120,6 +120,7 @@ jobs:
     ############################################################################
     - name: Fastlane Build and Export App
       env:
+        FASTLANE_TEAM_ID: MNGTD992QD
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
         FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
         MATCH_PASSWORD: ${{ secrets.APPLE_PASS }}

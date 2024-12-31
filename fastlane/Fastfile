@@ -3,6 +3,12 @@ default_platform(:ios)
 platform :ios do
   desc "Build the iOS app"
   lane :build do
+    api_key = app_store_connect_api_key(
+      key_id: "7JM7RPTSS3",
+      issuer_id: "0ed2310f-92fd-44a3-87af-35e9263850b2",
+      key_filepath: "api_key.json"
+    )
+
     # Synchronize signing certificates and profiles using match
     match(
       type: "appstore", # Change to "development" or "adhoc" if needed
