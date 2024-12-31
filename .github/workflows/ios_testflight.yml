@@ -134,7 +134,11 @@ jobs:
         xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
 
         # Use Fastlane to build and export the app
-        fastlane build --verbose
+        fastlane build --verbose \
+          --api_key_path api_key.json \
+          --team_id MNGTD992QD \
+          --ipa myapp-ios/build/myapp.ipa \
+          --app_identifier com.snslocation.electricians-now
 
     ############################################################################
     - name: IPA Artifact Upload
