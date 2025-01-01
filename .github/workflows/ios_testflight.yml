@@ -130,6 +130,11 @@ jobs:
         # Update deployment target in the Xcode project
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 16.1/' myapp-ios/myapp.xcodeproj/project.pbxproj
 
+        sed -i '' '/CODE_SIGN_IDENTITY/c\
+                    CODE_SIGN_STYLE = Manual;\
+                    DEVELOPMENT_TEAM = MNGTD992QD;\
+                    PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;'
+
         # Login
         xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
 
