@@ -1,5 +1,4 @@
 scheme "myapp"
-sdk "iphoneos16.1"
 include_bitcode true
 include_symbols false
 clean true
