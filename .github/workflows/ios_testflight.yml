@@ -125,8 +125,6 @@ jobs:
         FASTLANE_TEAM_ID: MNGTD992QD
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
         FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
-        MATCH_PASSWORD: ${{ secrets.APPLE_PASS }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
 
         # Update deployment target in the Xcode project
@@ -136,7 +134,7 @@ jobs:
         xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
 
         # Use Fastlane to build and export the app
-        fastlane ios build --verbose
+        fastlane gym --verbose
         
     ############################################################################
     - name: IPA Artifact Upload
@@ -147,18 +145,24 @@ jobs:
 
     ############################################################################
     - name: TestFlight Upload
+      env:
+        FASTLANE_TEAM_ID: MNGTD992QD
+        FASTLANE_USER: ${{ secrets.APPLE_USER }}
+        FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
       run: |
+        fastlane snapshot
+        fastlane frameit gold
         fastlane pilot upload \
           --api_key_path api_key.json \
-          --team_id MNGTD992QD \
-          --ipa myapp-ios/build/myapp.ipa \
-          --app_identifier com.snslocation.electricians-now
+          --ipa myapp-ios/build/myapp.ipa
 
     ############################################################################
     - name: App Store Connect Upload
+      env:
+        FASTLANE_TEAM_ID: MNGTD992QD
+        FASTLANE_USER: ${{ secrets.APPLE_USER }}
+        FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
       run: |
         fastlane deliver \
           --api_key_path api_key.json \
-          --app_identifier com.snslocation.electricians-now \
-          --team_id MNGTD992QD \
           --ipa myapp-ios/build/myapp.ipa

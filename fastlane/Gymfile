@@ -1,0 +1,13 @@
+scheme "myapp"
+sdk "iphoneos16.1"
+include_bitcode true
+include_symbols false
+clean true
+workspace "myapp-ios/myapp.xcodeproj/project.xcworkspace"
+configuration "Release"
+export_method "app-store"
+export_team_id "MNGTD992QD"
+output_directory "myapp-ios/build"
+output_name "myapp.ipa"
+xcargs "DEVELOPMENT_TEAM=MNGTD992QD -allowProvisioningUpdates"
+export_options "./ExportOptions.plist"
