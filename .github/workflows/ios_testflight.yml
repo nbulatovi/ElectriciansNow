@@ -78,21 +78,6 @@ jobs:
         security set-key-partition-list -S apple-tool:,apple: -s -k temp-password build.keychain
 
     ############################################################################
-    - name: Fastlane Match
-      env:
-        APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
-        API_KEY_P8: ${{ secrets.API_KEY_P8 }}
-        FASTLANE_USER: ${{ secrets.APPLE_USER }}
-        FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
-        MATCH_PASSWORD: ${{ secrets.APPLE_PASS }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gem install fastlane
-        echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
-        echo "$API_KEY_P8" | base64 --decode > api_key.p8
-        fastlane run match --verbose
-
-    ############################################################################
     - name: Kivy Install
       env:
         ACTIONS_STEP_DEBUG: false
@@ -129,6 +114,22 @@ jobs:
     - name: Add App Icons
       run: |
         cp src/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
+    
+############################################################################
+    - name: Fastlane Match
+      env:
+        APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
+        API_KEY_P8: ${{ secrets.API_KEY_P8 }}
+        FASTLANE_USER: ${{ secrets.APPLE_USER }}
+        FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
+        MATCH_PASSWORD: ${{ secrets.APPLE_PASS }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gem install fastlane
+        echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
+        echo "$API_KEY_P8" | base64 --decode > api_key.p8
+        fastlane run match --verbose
+
 
     ############################################################################
     - name: Fastlane Build and Export App
@@ -142,7 +143,7 @@ jobs:
         xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
 
         # Use Fastlane to build and export the app
-        fastlane gym
+        fastlane gym --verbose
         
     ############################################################################
     - name: IPA Artifact Upload
