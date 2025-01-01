@@ -136,7 +136,7 @@ jobs:
         xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
 
         # Use Fastlane to build and export the app
-        fastlane build --verbose
+        fastlane ios build --verbose
         
     ############################################################################
     - name: IPA Artifact Upload
