@@ -133,6 +133,8 @@ jobs:
         # Login
         xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
 
+        fastlane run authenticate_with_app_store_connect api_key_path:api_key.p8
+
         # Use Fastlane to build and export the app
         fastlane gym --verbose
         
