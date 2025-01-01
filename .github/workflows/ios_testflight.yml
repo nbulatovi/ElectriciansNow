@@ -90,10 +90,10 @@ jobs:
       run: |
         toolchain create myapp src/ 
         cd myapp-ios
+        sed -i '' 's/org\.kivy\.myapp/com.snslocation.electricians-now/g' myapp-Info.plist
+        cp -r myapp.xcodeproj/project.xcworkspace/ .
         tree -a
         grep -r -A 3 -B 3 "org.kivy.myapp" .
-        sed -i '' 's/org\.kivy\.myapp/com.snslocation.electricians-now/g' myapp-Info.plist
-        cp myapp.xcodeproj/project.xcworkspace/ .
 
     ############################################################################
     - name: Build and Generate Xcode Project
