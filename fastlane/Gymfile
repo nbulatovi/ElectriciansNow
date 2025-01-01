@@ -10,8 +10,3 @@ output_directory "#{ENV['GITHUB_WORKSPACE']}/myapp-ios/build"
 output_name "myapp.ipa"
 xcargs "DEVELOPMENT_TEAM=MNGTD992QD -allowProvisioningUpdates"
 export_options "#{ENV['GITHUB_WORKSPACE']}/ExportOptions.plist"
-api_key({
-      key_id: "7JM7RPTSS3",
-      issuer_id: "0ed2310f-92fd-44a3-87af-35e9263850b2",
-      key_filepath: "#{ENV['GITHUB_WORKSPACE']}/api_key.p8"
-    })
