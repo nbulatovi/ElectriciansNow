@@ -11,7 +11,8 @@ platform :ios do
 
     # Synchronize signing certificates and profiles using match
     match(
-      type: "appstore", # Change to "development" or "adhoc" if needed
+      type: "appstore", # Use "development" or "adhoc" for other builds
+      api_key: api_key  # Pass the API key here explicitly
     )
 
     # Build the app using gym
@@ -19,7 +20,7 @@ platform :ios do
       scheme: "myapp", # Scheme name
       workspace: "myapp-ios/myapp.xcodeproj/project.xcworkspace", # Workspace path
       configuration: "Release", # Use "Debug" for development builds
-      export_method: "app-store", # Use "ad-hoc" or "development" if needed
+      export_method: "app-store", # Use "ad-hoc" or "development" for other builds
       export_team_id: "MNGTD992QD", # Team ID for signing
       output_directory: "myapp-ios/build", # Output directory for the IPA
       output_name: "myapp.ipa", # Output file name
