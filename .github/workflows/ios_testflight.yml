@@ -93,7 +93,6 @@ jobs:
         sed -i '' 's/org\.kivy\.myapp/com.snslocation.electricians-now/g' myapp-Info.plist
         cp -r myapp.xcodeproj/project.xcworkspace/ .
         tree -a
-        grep -r -A 3 -B 3 "org.kivy.myapp" .
 
     ############################################################################
     - name: Build and Generate Xcode Project
