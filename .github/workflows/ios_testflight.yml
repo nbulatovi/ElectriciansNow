@@ -8,7 +8,7 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-    timeout-minutes: 90 # Increase this timeout value as needed
+    timeout-minutes: 30 # Increase this timeout value as needed
 
     steps:
 
@@ -93,6 +93,7 @@ jobs:
         tree -a
         grep -r -A 3 -B 3 "org.kivy.myapp" .
         sed -i '' 's/org\.kivy\.myapp/com.snslocation.electricians-now/g' myapp-Info.plist
+        cp myapp.xcodeproj/project.xcworkspace . -r
 
     ############################################################################
     - name: Build and Generate Xcode Project
