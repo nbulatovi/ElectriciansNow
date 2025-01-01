@@ -112,8 +112,7 @@ jobs:
     ############################################################################
     - name: Build and Generate Xcode Project
       run: |
-        toolchain update myapp-ios
-
+        
         # Update deployment target in the Xcode project
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 16.1/' myapp-ios/myapp.xcodeproj/project.pbxproj
 
@@ -122,6 +121,9 @@ jobs:
                     DEVELOPMENT_TEAM = MNGTD992QD;\
                     PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;'\
                     myapp-ios/myapp.xcodeproj/project.pbxproj
+
+         # Kivy project build
+         toolchain update myapp-ios
 
     ############################################################################
     - name: Add App Icons
