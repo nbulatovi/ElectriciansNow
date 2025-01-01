@@ -133,7 +133,8 @@ jobs:
         sed -i '' '/CODE_SIGN_IDENTITY/c\
                     CODE_SIGN_STYLE = Manual;\
                     DEVELOPMENT_TEAM = MNGTD992QD;\
-                    PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;'
+                    PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;'\
+                    myapp-ios/myapp.xcodeproj/project.pbxproj
 
         # Login
         xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
