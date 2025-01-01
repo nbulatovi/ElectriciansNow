@@ -91,7 +91,7 @@ jobs:
         toolchain create myapp src/ 
         cd myapp-ios
         sed -i '' 's/org\.kivy\.myapp/com.snslocation.electricians-now/g' myapp-Info.plist
-        cp -r myapp.xcodeproj/project.xcworkspace/ .
+        cp -r myapp.xcodeproj/project.xcworkspace .
         tree -a
 
     ############################################################################
