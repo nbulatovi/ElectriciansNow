@@ -2,7 +2,7 @@ scheme "myapp"
 include_bitcode true
 include_symbols false
 workspace "#{ENV['GITHUB_WORKSPACE']}/myapp-ios/myapp.xcodeproj/project.xcworkspace"
-project "#{ENV['GITHUB_WORKSPACE']}/myapp-ios/myapp.xcodeproj/"
+project "#{ENV['GITHUB_WORKSPACE']}/myapp-ios/myapp.xcodeproj"
 configuration "Release"
 export_method "app-store"
 export_team_id "MNGTD992QD"
