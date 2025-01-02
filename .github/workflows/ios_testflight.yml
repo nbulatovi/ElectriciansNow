@@ -142,7 +142,7 @@ jobs:
         # Login
         xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
 
-        xcodebuild -list -workspace myapp-ios/project.xcworkspace
+        xcodebuild -list -workspace myapp-ios/myapp.xcodeproj/project.xcworkspace
 
         # Use Fastlane to build and export the app
         fastlane gym --verbose
