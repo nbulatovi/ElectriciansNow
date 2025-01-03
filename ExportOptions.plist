@@ -14,14 +14,12 @@
     <string>upload</string>
     <key>uploadSymbols</key>
     <false/>
-    <key>signingStyle</key>
-    <string>manual</string>
 	<key>signingCertificate</key>
 	<string>iPhone Distribution: SNS Location (MNGTD992QD)</string>
     <key>provisioningProfiles</key>
     <dict>
         <key>*</key>
-        <string>02b2db3a-23a0-4b19-a3db-c8d06b017635</string>
+        <string>/Users/runner/Library/MobileDevice/Provisioning Profiles/02b2db3a-23a0-4b19-a3db-c8d06b017635.mobileprovision</string>
     </dict>
 </dict>
 </plist>
