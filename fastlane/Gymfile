@@ -1,4 +1,5 @@
 scheme "myapp"
+sdk "iphoneos17.0"
 include_bitcode true
 include_symbols false
 project "#{ENV['GITHUB_WORKSPACE']}/myapp-ios/myapp.xcodeproj"
