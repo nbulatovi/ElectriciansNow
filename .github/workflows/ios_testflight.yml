@@ -15,6 +15,7 @@ jobs:
     ############################################################################
     - name: Disk Cleanup
       run: |
+        sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
         xcode-select -p
         # find /Applications -maxdepth 1 -type d -name "Xcode*" ! -name "Xcode_15.4*.app" -exec sudo rm -rf {} +
         # sudo du -sh /System/Volumes/Data/Applications/* 2>/dev/null
