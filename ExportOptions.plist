@@ -19,7 +19,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>*</key>
-        <string>/Users/runner/Library/MobileDevice/Provisioning Profiles/02b2db3a-23a0-4b19-a3db-c8d06b017635.mobileprovision</string>
+        <string>match AppStore com.snslocation.electricians-now 1735492452</string>
     </dict>
 </dict>
 </plist>

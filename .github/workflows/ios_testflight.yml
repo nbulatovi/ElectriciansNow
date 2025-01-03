@@ -95,7 +95,7 @@ jobs:
         tree -a
 
     ############################################################################
-    - name: Build and Generate Xcode Project
+    - name: Generate Xcode Project
       run: |
         
         # Update deployment target in the Xcode project
@@ -114,7 +114,7 @@ jobs:
       run: |
         cp src/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
     
-############################################################################
+    ############################################################################
     - name: Fastlane Match
       env:
         APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
@@ -129,9 +129,8 @@ jobs:
         echo "$API_KEY_P8" | base64 --decode > api_key.p8
         fastlane run match --verbose
 
-
     ############################################################################
-    - name: Fastlane Build and Export App
+    - name: Build and Export App
       env:
         FASTLANE_TEAM_ID: MNGTD992QD
         FASTLANE_USER: ${{ secrets.APPLE_USER }}

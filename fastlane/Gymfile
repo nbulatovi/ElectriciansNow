@@ -3,9 +3,8 @@ include_bitcode true
 include_symbols false
 project "#{ENV['GITHUB_WORKSPACE']}/myapp-ios/myapp.xcodeproj"
 configuration "Release"
-export_method "app-store"
-export_team_id "MNGTD992QD"
 output_directory "#{ENV['GITHUB_WORKSPACE']}/myapp-ios/build"
 output_name "myapp.ipa"
-xcargs "-allowProvisioningUpdates"
 export_options "#{ENV['GITHUB_WORKSPACE']}/ExportOptions.plist"
+export_method "app-store-connect"
+export_team_id "MNGTD992QD"
