@@ -5,7 +5,7 @@ git_branch "main"
 git_full_name "Fastlane Bot"
 git_user_email "fastlane-bot@example.com"
 team_id "MNGTD992QD"
-app_identifier ["com.snslocation.electricians-now"]
 api_key_path "api_key.json" 
 keychain_name "build.keychain"
 keychain_password "temp-password"
+app_identifier "com.snslocation.electricians-now"
