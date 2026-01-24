@@ -1,11 +1,15 @@
 devices([
+  "iPhone 16 Pro Max",
+  "iPhone 16 Pro",
+  "iPhone 16",
+  "iPhone 15 Pro Max",
   "iPhone 15"
 ])
 
 languages([
-  "en"
+  "en-US"
 ])
 
-scheme "myapp"
+scheme "ElectriciansNow"
 output_directory "./fastlane/screenshots"
 clear_previous_screenshots true

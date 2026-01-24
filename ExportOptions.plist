@@ -7,19 +7,21 @@
     <key>teamID</key>
     <string>MNGTD992QD</string>
     <key>compileBitcode</key>
-    <true/>
-	<key>uploadBitcode</key>
-	<false/>
+    <false/>
+    <key>uploadBitcode</key>
+    <false/>
     <key>destination</key>
     <string>upload</string>
     <key>uploadSymbols</key>
-    <false/>
-	<key>signingCertificate</key>
-	<string>iPhone Distribution: SNS Location (MNGTD992QD)</string>
+    <true/>
+    <key>signingCertificate</key>
+    <string>iPhone Distribution</string>
+    <key>signingStyle</key>
+    <string>manual</string>
     <key>provisioningProfiles</key>
     <dict>
-        <key>*</key>
-        <string>match AppStore com.snslocation.electricians-now 1735492452</string>
+        <key>com.snslocation.electricians-now</key>
+        <string>match AppStore com.snslocation.electricians-now</string>
     </dict>
 </dict>
 </plist>

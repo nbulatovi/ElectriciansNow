@@ -1,2 +1,4 @@
 kivy==2.3.0
-pyobjc
+anthropic>=0.39.0
+openai>=1.50.0
+requests>=2.31.0

@@ -1,0 +1,335 @@
+#:kivy 2.3.0
+#:import dp kivy.metrics.dp
+
+<HomeScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20)
+        spacing: dp(15)
+
+        # Header
+        BoxLayout:
+            size_hint_y: None
+            height: dp(100)
+            orientation: 'vertical'
+
+            Label:
+                text: "ElectriciansNow"
+                font_size: dp(32)
+                bold: True
+                color: 0.2, 0.4, 0.8, 1
+
+            Label:
+                text: "Professional Electrical Services"
+                font_size: dp(14)
+                color: 0.5, 0.5, 0.5, 1
+
+        # Main content
+        BoxLayout:
+            orientation: 'vertical'
+            spacing: dp(15)
+
+            Button:
+                text: "Get AI Estimate"
+                font_size: dp(18)
+                size_hint_y: None
+                height: dp(60)
+                background_color: 0.2, 0.6, 0.9, 1
+                on_press: root.manager.current = 'estimate'
+
+            Button:
+                text: "Schedule Electrician"
+                font_size: dp(18)
+                size_hint_y: None
+                height: dp(60)
+                background_color: 0.2, 0.7, 0.3, 1
+                on_press: root.manager.current = 'schedule'
+
+            Button:
+                text: "Ask a Question"
+                font_size: dp(18)
+                size_hint_y: None
+                height: dp(60)
+                background_color: 0.9, 0.6, 0.2, 1
+                on_press: root.manager.current = 'chat'
+
+            Button:
+                text: "My Bookings"
+                font_size: dp(18)
+                size_hint_y: None
+                height: dp(60)
+                background_color: 0.6, 0.4, 0.8, 1
+                on_press: root.manager.current = 'bookings'
+
+        # Footer
+        Label:
+            size_hint_y: None
+            height: dp(60)
+            text: "Licensed & Insured\n24/7 Emergency Service"
+            font_size: dp(12)
+            color: 0.5, 0.5, 0.5, 1
+            halign: 'center'
+
+
+<EstimateScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(15)
+        spacing: dp(10)
+
+        # Header with back button
+        BoxLayout:
+            size_hint_y: None
+            height: dp(50)
+
+            Button:
+                text: "< Back"
+                size_hint_x: 0.3
+                on_press: root.manager.current = 'home'
+
+            Label:
+                text: "Get Estimate"
+                font_size: dp(20)
+                bold: True
+
+        # Job description input
+        Label:
+            text: "Describe the electrical work needed:"
+            size_hint_y: None
+            height: dp(30)
+            halign: 'left'
+            text_size: self.size
+
+        TextInput:
+            id: job_input
+            text: root.job_description
+            on_text: root.job_description = self.text
+            multiline: True
+            hint_text: "e.g., Install 3 new outlets in the kitchen, add ceiling fan in bedroom..."
+            size_hint_y: None
+            height: dp(120)
+
+        Button:
+            text: "Get AI Estimate"
+            size_hint_y: None
+            height: dp(50)
+            background_color: 0.2, 0.6, 0.9, 1
+            on_press: root.get_estimate()
+
+        # Results area
+        ScrollView:
+            Label:
+                text: root.estimate_result if root.estimate_result else "Enter a description and tap 'Get AI Estimate'"
+                text_size: self.width - dp(20), None
+                size_hint_y: None
+                height: self.texture_size[1]
+                padding: dp(10), dp(10)
+                halign: 'left'
+                valign: 'top'
+
+        # Schedule button (visible when estimate is ready)
+        Button:
+            text: f"Schedule Service - ${root.estimated_cost:.2f}"
+            size_hint_y: None
+            height: dp(50)
+            background_color: 0.2, 0.7, 0.3, 1
+            opacity: 1 if root.estimated_cost > 0 else 0
+            disabled: root.estimated_cost <= 0
+            on_press: root.proceed_to_schedule()
+
+
+<ScheduleScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(15)
+        spacing: dp(10)
+
+        # Header
+        BoxLayout:
+            size_hint_y: None
+            height: dp(50)
+
+            Button:
+                text: "< Back"
+                size_hint_x: 0.3
+                on_press: root.manager.current = 'estimate'
+
+            Label:
+                text: "Schedule Visit"
+                font_size: dp(20)
+                bold: True
+
+        # Estimate summary
+        Label:
+            text: app.get_estimate_summary()
+            size_hint_y: None
+            height: dp(40)
+            color: 0.2, 0.6, 0.2, 1
+            bold: True
+
+        # Date selection
+        Label:
+            text: "Select Date:"
+            size_hint_y: None
+            height: dp(25)
+            halign: 'left'
+            text_size: self.size
+
+        Spinner:
+            id: date_spinner
+            text: root.selected_date
+            values: root.available_dates
+            size_hint_y: None
+            height: dp(45)
+            on_text: root.selected_date = self.text
+
+        # Time selection
+        Label:
+            text: "Select Time:"
+            size_hint_y: None
+            height: dp(25)
+            halign: 'left'
+            text_size: self.size
+
+        Spinner:
+            id: time_spinner
+            text: root.selected_time
+            values: root.available_times
+            size_hint_y: None
+            height: dp(45)
+            on_text: root.selected_time = self.text
+
+        # Address input
+        Label:
+            text: "Service Address:"
+            size_hint_y: None
+            height: dp(25)
+            halign: 'left'
+            text_size: self.size
+
+        TextInput:
+            text: root.address
+            on_text: root.address = self.text
+            multiline: True
+            hint_text: "Enter your full address"
+            size_hint_y: None
+            height: dp(70)
+
+        # Phone input
+        Label:
+            text: "Phone Number:"
+            size_hint_y: None
+            height: dp(25)
+            halign: 'left'
+            text_size: self.size
+
+        TextInput:
+            text: root.phone
+            on_text: root.phone = self.text
+            multiline: False
+            hint_text: "(555) 123-4567"
+            size_hint_y: None
+            height: dp(45)
+            input_filter: 'int'
+
+        # Spacer
+        Widget:
+
+        # Confirm button
+        Button:
+            text: "Confirm & Pay"
+            size_hint_y: None
+            height: dp(55)
+            background_color: 0.2, 0.7, 0.3, 1
+            font_size: dp(18)
+            on_press: root.confirm_booking()
+
+
+<BookingsScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(15)
+        spacing: dp(10)
+
+        # Header
+        BoxLayout:
+            size_hint_y: None
+            height: dp(50)
+
+            Button:
+                text: "< Back"
+                size_hint_x: 0.3
+                on_press: root.manager.current = 'home'
+
+            Label:
+                text: "My Bookings"
+                font_size: dp(20)
+                bold: True
+
+        # Bookings list
+        ScrollView:
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(10)
+
+                Label:
+                    text: "Your upcoming appointments will appear here."
+                    size_hint_y: None
+                    height: dp(100)
+                    color: 0.5, 0.5, 0.5, 1
+
+
+<ChatScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(15)
+        spacing: dp(10)
+
+        # Header
+        BoxLayout:
+            size_hint_y: None
+            height: dp(50)
+
+            Button:
+                text: "< Back"
+                size_hint_x: 0.3
+                on_press: root.manager.current = 'home'
+
+            Label:
+                text: "Ask an Expert"
+                font_size: dp(20)
+                bold: True
+
+        # Chat history
+        ScrollView:
+            id: chat_scroll
+            Label:
+                text: root.chat_history if root.chat_history else "Ask any question about electrical work, safety, or costs..."
+                text_size: self.width - dp(20), None
+                size_hint_y: None
+                height: self.texture_size[1]
+                padding: dp(10), dp(10)
+                halign: 'left'
+                valign: 'top'
+
+        # Input area
+        BoxLayout:
+            size_hint_y: None
+            height: dp(50)
+            spacing: dp(10)
+
+            TextInput:
+                id: chat_input
+                text: root.user_message
+                on_text: root.user_message = self.text
+                multiline: False
+                hint_text: "Type your question..."
+                on_text_validate: root.send_message()
+
+            Button:
+                text: "Send"
+                size_hint_x: 0.25
+                background_color: 0.2, 0.6, 0.9, 1
+                on_press: root.send_message()

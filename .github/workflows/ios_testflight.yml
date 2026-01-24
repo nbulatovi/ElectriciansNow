@@ -4,30 +4,28 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build-ios:
-    runs-on: macos-latest
-    timeout-minutes: 30 # Increase this timeout value as needed
+    runs-on: macos-15
+    timeout-minutes: 60
 
     steps:
 
     ############################################################################
-    - name: Disk Cleanup
+    - name: Show Environment Info
       run: |
+        sw_vers
         xcode-select -p
+        xcodebuild -version
         xcodebuild -showsdks
-        # find /Applications -maxdepth 1 -type d -name "Xcode*" ! -name "Xcode_15.4*.app" -exec sudo rm -rf {} +
-        # sudo du -sh /System/Volumes/Data/Applications/* 2>/dev/null
-        # sudo rm -rf /System/Volumes/Data/Users/runner/Library/Android/* || true
-        # sudo rm -rf /System/Volumes/Data/Users/runner/Library/Developer/CoreSimulator || true
-        # sudo du -sh /System/Volumes/Data/Users/runner/Library/* 2>/dev/null || true
         df -h
 
     ############################################################################
     - name: Checkout Code
-      uses: actions/checkout@v3
-      
+      uses: actions/checkout@v4
+
     ############################################################################
     - name: Organize Source Dirs
       run: |
@@ -36,16 +34,19 @@ jobs:
 
     ############################################################################
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.11'
 
     ############################################################################
     - name: Install Build Tools
       run: |
         brew install autoconf automake libtool tree rsync
-        pip install Cython==3.0.0
-        pip install -r requirements.txt
+        pip install --upgrade pip
+        pip install Cython==3.0.11
+        pip install kivy-ios
+        # Install AI libraries for the app
+        pip install anthropic openai requests
 
     ############################################################################
     - name: Import Code Signing Certificate
@@ -53,7 +54,6 @@ jobs:
         APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
         APPLE_PRIVATE: ${{ secrets.APPLE_PRIVATE }}
       run: |
-
         # Decode and save certificate and private key
         echo "$APPLE_CERTIFICATE" | base64 --decode > ios_distribution.cer
         echo "$APPLE_PRIVATE" | base64 --decode > ios_private_key.pem
@@ -79,42 +79,57 @@ jobs:
         security set-key-partition-list -S apple-tool:,apple: -s -k temp-password build.keychain
 
     ############################################################################
-    - name: Kivy Install
+    - name: Kivy iOS Build
       env:
         ACTIONS_STEP_DEBUG: false
       run: |
-        pip install kivy-ios
-        toolchain build kivy
+        toolchain build python3 kivy
 
     ############################################################################
-    - name: Create App
+    - name: Create Xcode Project
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        INTUIT_ACCESS_TOKEN: ${{ secrets.INTUIT_ACCESS_TOKEN }}
+        INTUIT_ENVIRONMENT: production
       run: |
-        toolchain create myapp src/ 
-        cd myapp-ios
-        sed -i '' 's/org\.kivy\.myapp/com.snslocation.electricians-now/g' myapp-Info.plist
-        # cp -r myapp.xcodeproj/project.xcworkspace .
-        tree -a
+        toolchain create ElectriciansNow src/
 
-    ############################################################################
-    - name: Generate Xcode Project
-      run: |
-        
-        # Update deployment target in the Xcode project
-        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 16.1/' myapp-ios/myapp.xcodeproj/project.pbxproj
+        cd ElectriciansNow-ios
 
+        # Update bundle identifier
+        sed -i '' 's/org\.kivy\..*now/com.snslocation.electricians-now/g' ElectriciansNow-Info.plist
+
+        # Update deployment target for iOS 17+
+        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 17.0/g' ElectriciansNow.xcodeproj/project.pbxproj
+
+        # Configure code signing
         sed -i '' '/CODE_SIGN_IDENTITY/c\
+                    CODE_SIGN_IDENTITY = "iPhone Distribution";\
                     DEVELOPMENT_TEAM = MNGTD992QD;\
-                    PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;'\
-                    myapp-ios/myapp.xcodeproj/project.pbxproj
+                    PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;' \
+                    ElectriciansNow.xcodeproj/project.pbxproj
 
-         # Kivy project build
-         toolchain update myapp-ios
+        # Disable bitcode (deprecated in Xcode 14+)
+        sed -i '' 's/ENABLE_BITCODE = YES/ENABLE_BITCODE = NO/g' ElectriciansNow.xcodeproj/project.pbxproj
+
+        tree -a -L 2
+
+    ############################################################################
+    - name: Update Kivy Project
+      run: |
+        toolchain update ElectriciansNow-ios
 
     ############################################################################
     - name: Add App Icons
       run: |
-        cp src/Resources/AppIcon.appiconset/* myapp-ios/myapp/Images.xcassets/AppIcon.appiconset/
-    
+        cp src/Resources/AppIcon.appiconset/* ElectriciansNow-ios/ElectriciansNow/Images.xcassets/AppIcon.appiconset/
+
+    ############################################################################
+    - name: Setup Fastlane
+      run: |
+        gem install fastlane
+
     ############################################################################
     - name: Fastlane Match
       env:
@@ -125,7 +140,6 @@ jobs:
         MATCH_PASSWORD: ${{ secrets.APPLE_PASS }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        gem install fastlane
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
         echo "$API_KEY_P8" | base64 --decode > api_key.p8
         fastlane run match --verbose
@@ -137,21 +151,18 @@ jobs:
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
         FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
       run: |
+        # List available schemes
+        xcodebuild -list -project ElectriciansNow-ios/ElectriciansNow.xcodeproj
 
-        # Login
-        xcrun altool --list-providers -u "$FASTLANE_USER" -p "$FASTLANE_PASSWORD"
-
-        xcodebuild -list -workspace myapp-ios/myapp.xcodeproj/project.xcworkspace
-
-        # Use Fastlane to build and export the app
+        # Build with fastlane
         fastlane gym --verbose
-        
+
     ############################################################################
     - name: IPA Artifact Upload
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: myapp-ipa
-        path: myapp-ios/build/myapp.ipa
+        name: ElectriciansNow-ipa
+        path: ElectriciansNow-ios/build/ElectriciansNow.ipa
 
     ############################################################################
     - name: TestFlight Upload
@@ -160,19 +171,7 @@ jobs:
         FASTLANE_USER: ${{ secrets.APPLE_USER }}
         FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
       run: |
-        fastlane snapshot
-        fastlane frameit gold
         fastlane pilot upload \
           --api_key_path api_key.json \
-          --ipa myapp-ios/build/myapp.ipa
-
-    ############################################################################
-    - name: App Store Connect Upload
-      env:
-        FASTLANE_TEAM_ID: MNGTD992QD
-        FASTLANE_USER: ${{ secrets.APPLE_USER }}
-        FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
-      run: |
-        fastlane deliver \
-          --api_key_path api_key.json \
-          --ipa myapp-ios/build/myapp.ipa
+          --ipa ElectriciansNow-ios/build/ElectriciansNow.ipa \
+          --skip_waiting_for_build_processing true

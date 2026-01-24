@@ -144,6 +144,45 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# iOS / Xcode
+*.xcuserstate
+*.xcworkspace/
+xcuserdata/
+*.ipa
+*.dSYM.zip
+*.dSYM
+DerivedData/
+*.hmap
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+*.xccheckout
+*.moved-aside
+*.xcscmblueprint
+*.xcscheme
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# API Keys (never commit these)
+api_key.json
+api_key.p8
+*.cer
+*.pem
+*.p12
+
+# Local config
+.env.local
+config.local.py
+
 # PyCharm
 #  JetBrains specific template is maintainted in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
