@@ -1,5 +1,5 @@
 scheme "ElectriciansNow"
-sdk "iphoneos18.2"
+sdk "iphoneos"
 include_bitcode false
 include_symbols true
 project "#{ENV['GITHUB_WORKSPACE']}/ElectriciansNow-ios/ElectriciansNow.xcodeproj"
