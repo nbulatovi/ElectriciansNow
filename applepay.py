@@ -1,16 +1,16 @@
 """
 Apple Pay + Intuit GoPayment integration for ElectriciansNow app.
 Apple Pay handles the payment UI, Intuit processes the transaction.
+OAuth token management is handled transparently by intuit_oauth module.
 """
 
 import platform
 import os
 
+from intuit_oauth import get_token_manager
+
 # Configuration from environment variables
 MERCHANT_ID = os.environ.get('APPLE_PAY_MERCHANT_ID', 'merchant.com.snslocation.electricians-now')
-INTUIT_CLIENT_ID = os.environ.get('INTUIT_CLIENT_ID', '')
-INTUIT_CLIENT_SECRET = os.environ.get('INTUIT_CLIENT_SECRET', '')
-INTUIT_ACCESS_TOKEN = os.environ.get('INTUIT_ACCESS_TOKEN', '')
 INTUIT_ENVIRONMENT = os.environ.get('INTUIT_ENVIRONMENT', 'sandbox')  # 'sandbox' or 'production'
 
 # Intuit API endpoints
@@ -55,8 +55,10 @@ def process_payment_with_intuit(amount_cents, apple_pay_token, description):
     Returns:
         dict with payment result
     """
-    if not INTUIT_ACCESS_TOKEN:
-        return {"error": "Intuit GoPayment not configured", "mock": True}
+    token_manager = get_token_manager()
+    access_token = token_manager.get_valid_access_token()
+    if not access_token:
+        return {"error": "Payment service unavailable - please update app", "requires_update": True}
 
     try:
         import requests
@@ -84,7 +86,7 @@ def process_payment_with_intuit(amount_cents, apple_pay_token, description):
         }
 
         headers = {
-            "Authorization": f"Bearer {INTUIT_ACCESS_TOKEN}",
+            "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
             "Accept": "application/json",
             "Request-Id": str(uuid.uuid4())
@@ -128,8 +130,10 @@ def capture_payment(charge_id, amount_cents=None):
     Returns:
         dict with capture result
     """
-    if not INTUIT_ACCESS_TOKEN:
-        return {"error": "Intuit GoPayment not configured"}
+    token_manager = get_token_manager()
+    access_token = token_manager.get_valid_access_token()
+    if not access_token:
+        return {"error": "Payment service unavailable - please update app"}
 
     try:
         import requests
@@ -142,7 +146,7 @@ def capture_payment(charge_id, amount_cents=None):
             payload["amount"] = str(amount_cents / 100)
 
         headers = {
-            "Authorization": f"Bearer {INTUIT_ACCESS_TOKEN}",
+            "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
             "Accept": "application/json",
             "Request-Id": str(uuid.uuid4())
@@ -176,8 +180,10 @@ def refund_payment(charge_id, amount_cents=None):
     Returns:
         dict with refund result
     """
-    if not INTUIT_ACCESS_TOKEN:
-        return {"error": "Intuit GoPayment not configured"}
+    token_manager = get_token_manager()
+    access_token = token_manager.get_valid_access_token()
+    if not access_token:
+        return {"error": "Payment service unavailable - please update app"}
 
     try:
         import requests
@@ -190,7 +196,7 @@ def refund_payment(charge_id, amount_cents=None):
             payload["amount"] = str(amount_cents / 100)
 
         headers = {
-            "Authorization": f"Bearer {INTUIT_ACCESS_TOKEN}",
+            "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
             "Accept": "application/json",
             "Request-Id": str(uuid.uuid4())

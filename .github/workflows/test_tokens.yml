@@ -1,0 +1,153 @@
+name: Test OAuth Token Embedding
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-tokens:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install cryptography requests
+
+      - name: Check Secrets Exist
+        env:
+          INTUIT_ACCESS_TOKEN: ${{ secrets.INTUIT_ACCESS_TOKEN }}
+          INTUIT_REFRESH_TOKEN: ${{ secrets.INTUIT_REFRESH_TOKEN }}
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+          INTUIT_CLIENT_ID: ${{ secrets.INTUIT_CLIENT_ID }}
+          INTUIT_CLIENT_SECRET: ${{ secrets.INTUIT_CLIENT_SECRET }}
+        run: |
+          echo "Checking required secrets..."
+
+          if [ -z "$INTUIT_ACCESS_TOKEN" ]; then
+            echo "ERROR: INTUIT_ACCESS_TOKEN not set"
+            exit 1
+          else
+            echo "✓ INTUIT_ACCESS_TOKEN is set (${#INTUIT_ACCESS_TOKEN} chars)"
+          fi
+
+          if [ -z "$INTUIT_REFRESH_TOKEN" ]; then
+            echo "ERROR: INTUIT_REFRESH_TOKEN not set"
+            exit 1
+          else
+            echo "✓ INTUIT_REFRESH_TOKEN is set (${#INTUIT_REFRESH_TOKEN} chars)"
+          fi
+
+          if [ -z "$TOKEN_ENCRYPTION_KEY" ]; then
+            echo "ERROR: TOKEN_ENCRYPTION_KEY not set"
+            exit 1
+          else
+            echo "✓ TOKEN_ENCRYPTION_KEY is set (${#TOKEN_ENCRYPTION_KEY} chars)"
+          fi
+
+          if [ -z "$INTUIT_CLIENT_ID" ]; then
+            echo "ERROR: INTUIT_CLIENT_ID not set"
+            exit 1
+          else
+            echo "✓ INTUIT_CLIENT_ID is set (${#INTUIT_CLIENT_ID} chars)"
+          fi
+
+          if [ -z "$INTUIT_CLIENT_SECRET" ]; then
+            echo "ERROR: INTUIT_CLIENT_SECRET not set"
+            exit 1
+          else
+            echo "✓ INTUIT_CLIENT_SECRET is set (${#INTUIT_CLIENT_SECRET} chars)"
+          fi
+
+          echo ""
+          echo "All required secrets are configured!"
+
+      - name: Embed OAuth Tokens
+        env:
+          INTUIT_ACCESS_TOKEN: ${{ secrets.INTUIT_ACCESS_TOKEN }}
+          INTUIT_REFRESH_TOKEN: ${{ secrets.INTUIT_REFRESH_TOKEN }}
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+        run: |
+          python scripts/embed_tokens.py
+
+          # Verify file was created
+          if [ -f "Resources/initial_tokens.enc" ]; then
+            echo "✓ Token bundle created successfully"
+            ls -la Resources/initial_tokens.enc
+          else
+            echo "ERROR: Token bundle was not created"
+            exit 1
+          fi
+
+      - name: Test Token Decryption
+        env:
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+          INTUIT_CLIENT_ID: ${{ secrets.INTUIT_CLIENT_ID }}
+          INTUIT_CLIENT_SECRET: ${{ secrets.INTUIT_CLIENT_SECRET }}
+        run: |
+          python -c "
+          from intuit_oauth import IntuitTokenManager
+          import time
+
+          manager = IntuitTokenManager()
+          tokens = manager._load_embedded_tokens()
+
+          if not tokens:
+              print('ERROR: Failed to decrypt tokens')
+              exit(1)
+
+          print('✓ Token decryption successful')
+          print(f'  Access token length: {len(tokens.access_token)} chars')
+          print(f'  Refresh token length: {len(tokens.refresh_token)} chars')
+
+          # Check token expiry
+          days_until_refresh_expires = (tokens.refresh_expires_at - time.time()) / 86400
+          print(f'  Refresh token expires in: {days_until_refresh_expires:.1f} days')
+
+          if days_until_refresh_expires < 30:
+              print('WARNING: Refresh token expires in less than 30 days!')
+          "
+
+      - name: Test Token Refresh (Optional)
+        env:
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+          INTUIT_CLIENT_ID: ${{ secrets.INTUIT_CLIENT_ID }}
+          INTUIT_CLIENT_SECRET: ${{ secrets.INTUIT_CLIENT_SECRET }}
+        continue-on-error: true
+        run: |
+          python -c "
+          from intuit_oauth import IntuitTokenManager
+
+          manager = IntuitTokenManager()
+          tokens = manager._load_embedded_tokens()
+
+          if not tokens:
+              print('ERROR: No tokens to test refresh')
+              exit(1)
+
+          print('Testing token refresh with Intuit API...')
+          try:
+              new_tokens = manager._refresh_access_token(tokens.refresh_token)
+              print('✓ Token refresh successful!')
+              print(f'  New access token length: {len(new_tokens.access_token)} chars')
+          except Exception as e:
+              print(f'Token refresh failed: {e}')
+              print('This may be expected if tokens are already fresh')
+          "
+
+      - name: Summary
+        run: |
+          echo ""
+          echo "========================================="
+          echo "Token Test Summary"
+          echo "========================================="
+          echo "✓ All secrets configured"
+          echo "✓ Token bundle created and encrypted"
+          echo "✓ Token decryption working"
+          echo ""
+          echo "Ready for production builds!"

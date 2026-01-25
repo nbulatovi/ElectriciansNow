@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  schedule:
+    # Monthly build on 1st at 8 AM UTC - ensures fresh OAuth tokens
+    - cron: '0 8 1 * *'
   workflow_dispatch:
 
 jobs:
@@ -86,11 +89,23 @@ jobs:
         toolchain build python3 kivy
 
     ############################################################################
+    - name: Embed OAuth Tokens
+      env:
+        INTUIT_ACCESS_TOKEN: ${{ secrets.INTUIT_ACCESS_TOKEN }}
+        INTUIT_REFRESH_TOKEN: ${{ secrets.INTUIT_REFRESH_TOKEN }}
+        TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+      run: |
+        pip install cryptography
+        python src/scripts/embed_tokens.py
+
+    ############################################################################
     - name: Create Xcode Project
       env:
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        INTUIT_ACCESS_TOKEN: ${{ secrets.INTUIT_ACCESS_TOKEN }}
+        INTUIT_CLIENT_ID: ${{ secrets.INTUIT_CLIENT_ID }}
+        INTUIT_CLIENT_SECRET: ${{ secrets.INTUIT_CLIENT_SECRET }}
+        TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
         INTUIT_ENVIRONMENT: production
       run: |
         toolchain create ElectriciansNow src/

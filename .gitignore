@@ -179,6 +179,9 @@ api_key.p8
 *.pem
 *.p12
 
+# Encrypted tokens (generated at build time)
+Resources/initial_tokens.enc
+
 # Local config
 .env.local
 config.local.py
