@@ -29,80 +29,41 @@ jobs:
           INTUIT_USERNAME: ${{ secrets.INTUIT_USERNAME }}
           INTUIT_PASSWORD: ${{ secrets.INTUIT_PASSWORD }}
         run: |
-          echo "Checking secrets status..."
+          echo "========================================"
+          echo "Secrets Status Check"
+          echo "========================================"
+          echo "INTUIT_ACCESS_TOKEN: $([ -n "$INTUIT_ACCESS_TOKEN" ] && echo "SET (${#INTUIT_ACCESS_TOKEN} chars)" || echo "NOT SET")"
+          echo "INTUIT_REFRESH_TOKEN: $([ -n "$INTUIT_REFRESH_TOKEN" ] && echo "SET (${#INTUIT_REFRESH_TOKEN} chars)" || echo "NOT SET")"
+          echo "INTUIT_CLIENT_ID: $([ -n "$INTUIT_CLIENT_ID" ] && echo "SET (${#INTUIT_CLIENT_ID} chars)" || echo "NOT SET")"
+          echo "INTUIT_CLIENT_SECRET: $([ -n "$INTUIT_CLIENT_SECRET" ] && echo "SET (${#INTUIT_CLIENT_SECRET} chars)" || echo "NOT SET")"
+          echo "INTUIT_USERNAME: $([ -n "$INTUIT_USERNAME" ] && echo "SET (${#INTUIT_USERNAME} chars)" || echo "NOT SET")"
+          echo "INTUIT_PASSWORD: $([ -n "$INTUIT_PASSWORD" ] && echo "SET (${#INTUIT_PASSWORD} chars)" || echo "NOT SET")"
           echo ""
 
-          # Check what we have
-          HAS_TOKENS=false
-          HAS_CREDENTIALS=false
-
+          # If tokens exist, use them
           if [ -n "$INTUIT_ACCESS_TOKEN" ] && [ -n "$INTUIT_REFRESH_TOKEN" ]; then
-            echo "✓ INTUIT_ACCESS_TOKEN is set (${#INTUIT_ACCESS_TOKEN} chars)"
-            echo "✓ INTUIT_REFRESH_TOKEN is set (${#INTUIT_REFRESH_TOKEN} chars)"
-            HAS_TOKENS=true
-          else
-            echo "✗ INTUIT_ACCESS_TOKEN: $([ -n "$INTUIT_ACCESS_TOKEN" ] && echo "set (${#INTUIT_ACCESS_TOKEN} chars)" || echo "NOT SET")"
-            echo "✗ INTUIT_REFRESH_TOKEN: $([ -n "$INTUIT_REFRESH_TOKEN" ] && echo "set (${#INTUIT_REFRESH_TOKEN} chars)" || echo "NOT SET")"
-          fi
-
-          echo "✓ INTUIT_CLIENT_ID: $([ -n "$INTUIT_CLIENT_ID" ] && echo "set (${#INTUIT_CLIENT_ID} chars)" || echo "NOT SET")"
-          echo "✓ INTUIT_CLIENT_SECRET: $([ -n "$INTUIT_CLIENT_SECRET" ] && echo "set (${#INTUIT_CLIENT_SECRET} chars)" || echo "NOT SET")"
-
-          if [ -n "$INTUIT_USERNAME" ] && [ -n "$INTUIT_PASSWORD" ]; then
-            echo "✓ INTUIT_USERNAME is set"
-            echo "✓ INTUIT_PASSWORD is set"
-            HAS_CREDENTIALS=true
-          fi
-
-          echo ""
-
-          if [ "$HAS_TOKENS" = "true" ]; then
             echo "Using existing tokens from secrets"
             echo "ACCESS_TOKEN=$INTUIT_ACCESS_TOKEN" >> $GITHUB_OUTPUT
             echo "REFRESH_TOKEN=$INTUIT_REFRESH_TOKEN" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          echo "No tokens in secrets. Attempting headless OAuth..."
-
-          if [ -z "$INTUIT_CLIENT_ID" ] || [ -z "$INTUIT_CLIENT_SECRET" ]; then
-            echo "ERROR: INTUIT_CLIENT_ID and INTUIT_CLIENT_SECRET are required"
-            exit 1
+          # If credentials exist, try headless OAuth
+          if [ -n "$INTUIT_USERNAME" ] && [ -n "$INTUIT_PASSWORD" ]; then
+            echo "Attempting headless OAuth with credentials..."
+            python scripts/oauth_headless.py
+            exit $?
           fi
 
-          if [ "$HAS_CREDENTIALS" = "false" ]; then
-            echo ""
-            echo "========================================="
-            echo "MANUAL SETUP REQUIRED"
-            echo "========================================="
-            echo ""
-            echo "To get OAuth tokens, either:"
-            echo ""
-            echo "Option 1: Add tokens directly (recommended)"
-            echo "  1. Go to: https://developer.intuit.com/app/developer/playground"
-            echo "  2. Select your app and authorize"
-            echo "  3. Copy access_token and refresh_token"
-            echo "  4. Add as GitHub secrets:"
-            echo "     - INTUIT_ACCESS_TOKEN"
-            echo "     - INTUIT_REFRESH_TOKEN"
-            echo ""
-            echo "Option 2: Add Intuit credentials for automation"
-            echo "  Add these GitHub secrets:"
-            echo "     - INTUIT_USERNAME (your Intuit email)"
-            echo "     - INTUIT_PASSWORD (your Intuit password)"
-            echo "  Note: May fail if 2FA/CAPTCHA is required"
-            echo ""
-            exit 1
-          fi
-
-          # Try headless OAuth
-          python scripts/oauth_headless.py
-
-          if [ $? -ne 0 ]; then
-            echo ""
-            echo "Headless OAuth failed. Please add tokens manually."
-            exit 1
-          fi
+          # Nothing available
+          echo ""
+          echo "ERROR: Need either tokens OR credentials"
+          echo ""
+          echo "Add to GitHub secrets EITHER:"
+          echo "  - INTUIT_ACCESS_TOKEN + INTUIT_REFRESH_TOKEN (from playground)"
+          echo "  OR"
+          echo "  - INTUIT_USERNAME + INTUIT_PASSWORD (for automation)"
+          exit 1
 
       - name: Generate Encryption Key
         id: genkey
