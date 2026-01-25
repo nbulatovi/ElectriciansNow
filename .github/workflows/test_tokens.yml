@@ -23,7 +23,6 @@ jobs:
         env:
           INTUIT_ACCESS_TOKEN: ${{ secrets.INTUIT_ACCESS_TOKEN }}
           INTUIT_REFRESH_TOKEN: ${{ secrets.INTUIT_REFRESH_TOKEN }}
-          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
           INTUIT_CLIENT_ID: ${{ secrets.INTUIT_CLIENT_ID }}
           INTUIT_CLIENT_SECRET: ${{ secrets.INTUIT_CLIENT_SECRET }}
         run: |
@@ -43,13 +42,6 @@ jobs:
             echo "✓ INTUIT_REFRESH_TOKEN is set (${#INTUIT_REFRESH_TOKEN} chars)"
           fi
 
-          if [ -z "$TOKEN_ENCRYPTION_KEY" ]; then
-            echo "ERROR: TOKEN_ENCRYPTION_KEY not set"
-            exit 1
-          else
-            echo "✓ TOKEN_ENCRYPTION_KEY is set (${#TOKEN_ENCRYPTION_KEY} chars)"
-          fi
-
           if [ -z "$INTUIT_CLIENT_ID" ]; then
             echo "ERROR: INTUIT_CLIENT_ID not set"
             exit 1
@@ -67,11 +59,20 @@ jobs:
           echo ""
           echo "All required secrets are configured!"
 
+      - name: Generate Encryption Key
+        id: genkey
+        run: |
+          # Generate a new Fernet encryption key
+          KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+          echo "::add-mask::$KEY"
+          echo "TOKEN_ENCRYPTION_KEY=$KEY" >> $GITHUB_OUTPUT
+          echo "✓ Generated encryption key (${#KEY} chars)"
+
       - name: Embed OAuth Tokens
         env:
           INTUIT_ACCESS_TOKEN: ${{ secrets.INTUIT_ACCESS_TOKEN }}
           INTUIT_REFRESH_TOKEN: ${{ secrets.INTUIT_REFRESH_TOKEN }}
-          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+          TOKEN_ENCRYPTION_KEY: ${{ steps.genkey.outputs.TOKEN_ENCRYPTION_KEY }}
         run: |
           python scripts/embed_tokens.py
 
@@ -86,7 +87,7 @@ jobs:
 
       - name: Test Token Decryption
         env:
-          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+          TOKEN_ENCRYPTION_KEY: ${{ steps.genkey.outputs.TOKEN_ENCRYPTION_KEY }}
           INTUIT_CLIENT_ID: ${{ secrets.INTUIT_CLIENT_ID }}
           INTUIT_CLIENT_SECRET: ${{ secrets.INTUIT_CLIENT_SECRET }}
         run: |
@@ -113,12 +114,11 @@ jobs:
               print('WARNING: Refresh token expires in less than 30 days!')
           "
 
-      - name: Test Token Refresh (Optional)
+      - name: Test Token Refresh
         env:
-          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+          TOKEN_ENCRYPTION_KEY: ${{ steps.genkey.outputs.TOKEN_ENCRYPTION_KEY }}
           INTUIT_CLIENT_ID: ${{ secrets.INTUIT_CLIENT_ID }}
           INTUIT_CLIENT_SECRET: ${{ secrets.INTUIT_CLIENT_SECRET }}
-        continue-on-error: true
         run: |
           python -c "
           from intuit_oauth import IntuitTokenManager
@@ -135,9 +135,10 @@ jobs:
               new_tokens = manager._refresh_access_token(tokens.refresh_token)
               print('✓ Token refresh successful!')
               print(f'  New access token length: {len(new_tokens.access_token)} chars')
+              print(f'  New refresh token length: {len(new_tokens.refresh_token)} chars')
           except Exception as e:
-              print(f'Token refresh failed: {e}')
-              print('This may be expected if tokens are already fresh')
+              print(f'ERROR: Token refresh failed: {e}')
+              exit(1)
           "
 
       - name: Summary
@@ -147,7 +148,9 @@ jobs:
           echo "Token Test Summary"
           echo "========================================="
           echo "✓ All secrets configured"
+          echo "✓ Encryption key auto-generated"
           echo "✓ Token bundle created and encrypted"
           echo "✓ Token decryption working"
+          echo "✓ Token refresh with Intuit API working"
           echo ""
           echo "Ready for production builds!"
