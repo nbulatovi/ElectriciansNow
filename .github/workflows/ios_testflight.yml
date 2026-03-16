@@ -174,3 +174,32 @@ jobs:
           --api_key_path api_key.json \
           --ipa ElectriciansNow-ios/build/ElectriciansNow.ipa \
           --skip_waiting_for_build_processing true
+
+    ############################################################################
+    - name: Add External Beta Testers
+      env:
+        FASTLANE_TEAM_ID: MNGTD992QD
+        FASTLANE_USER: ${{ secrets.APPLE_USER }}
+        FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
+      run: |
+        # Add external testers - they'll receive Apple's TestFlight invite email
+        fastlane pilot add \
+          --api_key_path api_key.json \
+          nikola.bulatovic@aol.com \
+          --group "External Testers" || true
+
+    ############################################################################
+    - name: Notify Tester via Email
+      if: success()
+      run: |
+        curl -s -X POST "https://gcchelp-email-worker.gcchelp.workers.dev/send" \
+          -H "Content-Type: application/json" \
+          -H "X-Webhook-Secret: V73S-urN7L9RJY4YiLU-x51IiRtCNCsFhO-XSZ_41fo" \
+          -d '{
+            "to": "nikola.bulatovic@aol.com",
+            "subject": "ElectriciansNow Build Ready for Testing",
+            "from": "info@gcchelp.com",
+            "fromName": "ElectriciansNow CI",
+            "html": "<h2>New Build Available!</h2><p>A new ElectriciansNow build has been uploaded to TestFlight.</p><p><strong>How to install:</strong></p><ol><li>Open <a href=\"https://apps.apple.com/us/app/testflight/id899247664\">TestFlight</a> on your iPhone</li><li>You should see ElectriciansNow - tap Update/Install</li><li>If you do not see it, check your email for an Apple TestFlight invite</li></ol><p><strong>What to test:</strong></p><ul><li>Get an AI estimate for electrical work</li><li>Schedule a service and pay via the checkout</li><li>Apple Pay is available on the payment page</li></ul><p>Thanks for testing!</p>",
+            "text": "New ElectriciansNow build uploaded to TestFlight. Open TestFlight on your iPhone to install. Test: get an estimate, schedule service, and pay."
+          }'
