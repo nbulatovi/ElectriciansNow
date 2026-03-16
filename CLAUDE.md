@@ -6,6 +6,7 @@ iOS app for booking electrical services, built with Kivy (Python).
 - **Provider**: Whop (https://whop.com)
 - **API Key**: `apik_yF7szL8cdlreN_C4641771_C_f7116935a8abfc77fb92337d819f91838a0968202674a353f9d7ee87a2d1a1`
 - **Account**: nikola.bulatovic@snslocation.com
+- **Company ID**: `biz_zJoSxeeg1Jai0e`
 - **Company page**: https://whop.com/joined/nikola-s-electric/
 - **Flow**: Whop Checkout via WebView (supports Apple Pay, cards, etc.)
 
