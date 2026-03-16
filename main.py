@@ -14,7 +14,7 @@ from kivy.metrics import dp
 import json
 import os
 
-# Import AI service and Apple Pay
+# Import AI service and payment
 from ai_service import AIEstimator
 import applepay
 
@@ -108,7 +108,7 @@ class ScheduleScreen(Screen):
             self._show_popup("Error", "No valid estimate found")
             return
 
-        # Process payment with Apple Pay
+        # Process payment via Whop checkout (supports Apple Pay, cards, etc.)
         description = f"Electrician Service - {self.selected_date}"
         result = applepay.preauthorize(cost_cents, description)
 
@@ -122,7 +122,8 @@ class ScheduleScreen(Screen):
                 'address': self.address,
                 'phone': self.phone,
                 'estimate': estimate,
-                'payment_status': 'preauthorized'
+                'checkout_id': result.get('checkout_id'),
+                'payment_status': 'pending'
             }
             app.bookings.append(booking)
 

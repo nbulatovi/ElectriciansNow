@@ -1,5 +1,5 @@
 """
-iOS Keychain secure storage for OAuth tokens.
+iOS Keychain secure storage for payment data.
 Uses Security.framework via PyObjC.
 """
 
@@ -39,8 +39,8 @@ if IS_IOS:
 else:
     KEYCHAIN_AVAILABLE = False
 
-SERVICE_NAME = "com.snslocation.electricians-now.intuit-oauth"
-ACCOUNT_NAME = "merchant-tokens"
+SERVICE_NAME = "com.snslocation.electricians-now.whop"
+ACCOUNT_NAME = "payment-data"
 
 # In-memory fallback for non-iOS platforms (testing only)
 _memory_storage = {}

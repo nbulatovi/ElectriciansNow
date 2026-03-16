@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-  schedule:
-    # Monthly build on 1st at 8 AM UTC - ensures fresh OAuth tokens
-    - cron: '0 8 1 * *'
   workflow_dispatch:
 
 jobs:
@@ -48,7 +45,6 @@ jobs:
         pip install --upgrade pip
         pip install Cython==3.0.11
         pip install kivy-ios
-        # Install AI libraries for the app
         pip install anthropic openai requests
 
     ############################################################################
@@ -89,32 +85,12 @@ jobs:
         toolchain build python3 kivy
 
     ############################################################################
-    - name: Generate Encryption Key
-      id: genkey
-      run: |
-        pip install cryptography
-        KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-        echo "::add-mask::$KEY"
-        echo "TOKEN_ENCRYPTION_KEY=$KEY" >> $GITHUB_OUTPUT
-
-    ############################################################################
-    - name: Embed OAuth Tokens
-      env:
-        INTUIT_ACCESS_TOKEN: ${{ secrets.INTUIT_ACCESS_TOKEN }}
-        INTUIT_REFRESH_TOKEN: ${{ secrets.INTUIT_REFRESH_TOKEN }}
-        TOKEN_ENCRYPTION_KEY: ${{ steps.genkey.outputs.TOKEN_ENCRYPTION_KEY }}
-      run: |
-        python src/scripts/embed_tokens.py
-
-    ############################################################################
     - name: Create Xcode Project
       env:
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        INTUIT_CLIENT_ID: ${{ secrets.INTUIT_CLIENT_ID }}
-        INTUIT_CLIENT_SECRET: ${{ secrets.INTUIT_CLIENT_SECRET }}
-        TOKEN_ENCRYPTION_KEY: ${{ steps.genkey.outputs.TOKEN_ENCRYPTION_KEY }}
-        INTUIT_ENVIRONMENT: production
+        WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
+        WHOP_COMPANY_ID: ${{ secrets.WHOP_COMPANY_ID }}
       run: |
         toolchain create ElectriciansNow src/
 
