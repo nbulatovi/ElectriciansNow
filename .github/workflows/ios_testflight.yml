@@ -102,12 +102,17 @@ jobs:
         # Update deployment target for iOS 17+
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 17.0/g' ElectriciansNow.xcodeproj/project.pbxproj
 
-        # Configure code signing
+        # Switch to manual signing with distribution certificate
         sed -i '' '/CODE_SIGN_IDENTITY/c\
                     CODE_SIGN_IDENTITY = "iPhone Distribution";\
+                    CODE_SIGN_STYLE = Manual;\
                     DEVELOPMENT_TEAM = MNGTD992QD;\
-                    PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;' \
+                    PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;\
+                    PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.snslocation.electricians-now";' \
                     ElectriciansNow.xcodeproj/project.pbxproj
+
+        # Also replace any remaining automatic signing
+        sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' ElectriciansNow.xcodeproj/project.pbxproj
 
         # Disable bitcode (deprecated in Xcode 14+)
         sed -i '' 's/ENABLE_BITCODE = YES/ENABLE_BITCODE = NO/g' ElectriciansNow.xcodeproj/project.pbxproj
