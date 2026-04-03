@@ -146,7 +146,9 @@ jobs:
       run: |
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
         echo "$API_KEY_P8" | base64 --decode > api_key.p8
-        # Expired certs were removed - match will create new ones on the portal
+        # Revoke any existing distribution certs that are out of sync with storage
+        fastlane run match_nuke type:distribution skip_confirmation:true || true
+        # Create fresh certificate and provisioning profile
         fastlane run match --verbose
 
     ############################################################################
