@@ -1,4 +1,4 @@
-scheme "ElectriciansNow"
+scheme "electriciansnow"
 sdk "iphoneos"
 include_bitcode false
 include_symbols true
