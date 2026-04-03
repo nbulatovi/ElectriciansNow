@@ -141,8 +141,8 @@ jobs:
       run: |
         echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
         echo "$API_KEY_P8" | base64 --decode > api_key.p8
-        # Let match regenerate expired certificates automatically
-        fastlane run match force_for_new_certificates:true --verbose
+        # Expired certs were removed - match will create new ones on the portal
+        fastlane run match --verbose
 
     ############################################################################
     - name: Build and Export App

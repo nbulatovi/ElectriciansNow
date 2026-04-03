@@ -1,0 +1,2 @@
+- [project_whop_payment.md](project_whop_payment.md) - Whop payment integration details (company ID, API constraints, test cards)
+- [user_nikola.md](user_nikola.md) - Project owner running Nikola's Electric business
