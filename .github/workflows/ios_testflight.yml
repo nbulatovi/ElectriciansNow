@@ -64,7 +64,8 @@ jobs:
         security unlock-keychain -p temp-password build.keychain
 
         # Allow codesign to access the signing identity without prompts
-        security set-key-partition-list -S apple-tool:,apple: -s -k temp-password build.keychain
+        # (may fail on empty keychain - match will set this after importing certs)
+        security set-key-partition-list -S apple-tool:,apple: -s -k temp-password build.keychain || true
 
     ############################################################################
     - name: Kivy iOS Build
