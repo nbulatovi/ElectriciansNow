@@ -6,6 +6,5 @@ project "#{ENV['GITHUB_WORKSPACE']}/ElectriciansNow-ios/ElectriciansNow.xcodepro
 configuration "Release"
 output_directory "#{ENV['GITHUB_WORKSPACE']}/ElectriciansNow-ios/build"
 output_name "ElectriciansNow.ipa"
-export_options "#{ENV['GITHUB_WORKSPACE']}/ExportOptions.plist"
-export_method "app-store"
+export_method "app-store-connect"
 export_team_id "MNGTD992QD"
