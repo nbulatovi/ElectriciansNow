@@ -159,8 +159,13 @@ jobs:
         # List available schemes
         xcodebuild -list -project ElectriciansNow-ios/ElectriciansNow.xcodeproj
 
-        # Build with fastlane
-        fastlane gym --verbose
+        # Extract API key details for xcodebuild authentication
+        KEY_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['key_id'])")
+        ISSUER_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['issuer_id'])")
+
+        # Build with fastlane, passing auth for Xcode 16+ export
+        fastlane gym --verbose \
+          --xcargs "-allowProvisioningUpdates -authenticationKeyPath $(pwd)/api_key.p8 -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID"
 
     ############################################################################
     - name: IPA Artifact Upload
