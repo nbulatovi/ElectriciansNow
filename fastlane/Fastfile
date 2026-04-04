@@ -3,7 +3,7 @@ default_platform(:ios)
 platform :ios do
   desc "Revoke existing distribution certs and create fresh ones via match"
   lane :reset_signing do
-    match_nuke(type: "appstore")
+    match_nuke(type: "appstore", skip_confirmation: true)
     match(type: "appstore")
   end
 
