@@ -139,6 +139,9 @@ jobs:
         # Revoke out-of-sync portal certs and create fresh ones
         fastlane ios reset_signing --verbose
 
+        # Now that match has imported certs, set partition list for codesign access
+        security set-key-partition-list -S apple-tool:,apple: -s -k temp-password build.keychain
+
     ############################################################################
     - name: Build and Export App
       env:
