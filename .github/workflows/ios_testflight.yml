@@ -48,21 +48,10 @@ jobs:
         pip install anthropic openai requests
 
     ############################################################################
-    - name: Import Code Signing Certificate
-      env:
-        APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-        APPLE_PRIVATE: ${{ secrets.APPLE_PRIVATE }}
+    - name: Setup Keychain
       run: |
-        # Decode and save certificate and private key
-        echo "$APPLE_CERTIFICATE" | base64 --decode > ios_distribution.cer
-        echo "$APPLE_PRIVATE" | base64 --decode > ios_private_key.pem
-
-        # Create a temporary keychain
+        # Create a temporary keychain (match will import certs into it)
         security create-keychain -p temp-password build.keychain
-
-        # Import certificate and private key into the keychain
-        security import ios_distribution.cer -k build.keychain -T /usr/bin/codesign
-        security import ios_private_key.pem -k build.keychain -T /usr/bin/codesign
 
         # Add the keychain to the search list and prioritize it
         security list-keychains -s build.keychain
@@ -104,7 +93,7 @@ jobs:
 
         # Switch to manual signing with distribution certificate
         sed -i '' '/CODE_SIGN_IDENTITY/c\
-                    CODE_SIGN_IDENTITY = "iPhone Distribution";\
+                    CODE_SIGN_IDENTITY = "Apple Distribution";\
                     CODE_SIGN_STYLE = Manual;\
                     DEVELOPMENT_TEAM = MNGTD992QD;\
                     PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;\
