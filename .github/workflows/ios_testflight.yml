@@ -234,6 +234,14 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" \
               ElectriciansNow-Info.plist
 
+          # CFBundleShortVersionString must match the marketing version
+          # registered in App Store Connect for the app. The Electricians NOW
+          # app record has v1.0 in PREPARE_FOR_SUBMISSION. Builds claiming
+          # different marketing versions get silently rejected by Apple's
+          # processor with no error surfaced via altool/iris.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.0" \
+              ElectriciansNow-Info.plist
+
           /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" \
               ElectriciansNow-Info.plist 2>/dev/null || \
               /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" \
@@ -464,66 +472,31 @@ jobs:
           path: /tmp/ipa/ElectriciansNow.ipa
 
       ##########################################################################
-      - name: TestFlight Upload via iTMSTransporter (sidesteps altool bug)
+      - name: TestFlight Upload via fastlane pilot
         run: |
-          # All prior uploads (raw altool with/without --apple-id, fastlane
-          # pilot which itself wraps altool) returned "UPLOAD SUCCEEDED" +
-          # processingErrors=null but produced 0 builds in App Store Connect.
-          # The bug appears to be in Xcode 26's altool — it accepts the
-          # binary but never associates it with our app record.
-          #
-          # iTMSTransporter is Apple's older Java-based delivery tool (the
-          # original "Application Loader" backend). It uses a different code
-          # path entirely. Lives at:
-          #   /Applications/Xcode_26.2.app/Contents/Developer/usr/bin/iTMSTransporter
-          #
-          # We package the IPA into an .itmsp manifest with explicit
-          # vendor_id (bundle ID) and apple_id (numeric app ID) so there is
-          # zero ambiguity at upload time.
-          KEY_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['key_id'])")
-          ISSUER_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['issuer_id'])")
+          # iTMSTransporter is gone in Xcode 26 ("now part of Transporter,
+          # please install from Mac App Store"). Back to fastlane pilot
+          # (which wraps altool) — the actual fix for our 0-builds issue
+          # was setting CFBundleShortVersionString=1.0 to match the App
+          # Store record (our app has v1.0 in PREPARE_FOR_SUBMISSION;
+          # uploads claiming v1.1 had no matching version record so Apple
+          # silently rejected). See "Set CFBundleVersion + Info.plist"
+          # step earlier in this workflow for the version fix.
+          fastlane pilot upload \
+            --api_key_path api_key.json \
+            --ipa /tmp/ipa/ElectriciansNow.ipa \
+            --app_identifier com.snslocation.electricians-now \
+            --apple_id 6739545490 \
+            --skip_waiting_for_build_processing true \
+            --skip_submission true \
+            --verbose 2>&1 | tee /tmp/altool.log
 
-          ITMS=$(xcrun -f iTMSTransporter)
-          echo "Using iTMSTransporter at: $ITMS"
-
-          # Place the .p8 key where iTMSTransporter expects it
-          mkdir -p ~/.appstoreconnect/private_keys
-          cp api_key.p8 ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
-
-          # Create iTunes Producer .itmsp metadata package
-          mkdir -p /tmp/upload.itmsp
-          IPA=/tmp/ipa/ElectriciansNow.ipa
-          IPA_SIZE=$(stat -f%z "$IPA")
-          IPA_MD5=$(md5 -q "$IPA")
-          cp "$IPA" /tmp/upload.itmsp/
-          cat > /tmp/upload.itmsp/metadata.xml <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <package version="software5.4" xmlns="http://apple.com/itunes/importer">
-            <software_assets apple_id="6739545490" app_platform="ios">
-              <asset type="bundle">
-                <data_file>
-                  <file_name>ElectriciansNow.ipa</file_name>
-                  <checksum type="md5">${IPA_MD5}</checksum>
-                  <size>${IPA_SIZE}</size>
-                </data_file>
-              </asset>
-            </software_assets>
-          </package>
-          EOF
-          cat /tmp/upload.itmsp/metadata.xml
-
-          # Verify first
-          $ITMS -m verify -f /tmp/upload.itmsp \
-            -apiKey "$KEY_ID" -apiIssuer "$ISSUER_ID" \
-            -v informational 2>&1 | tee /tmp/itms-verify.log | tail -30 || echo "verify reported issues"
-
-          # Then upload
-          $ITMS -m upload -f /tmp/upload.itmsp \
-            -apiKey "$KEY_ID" -apiIssuer "$ISSUER_ID" \
-            -v informational 2>&1 | tee /tmp/itms-upload.log | tail -30
-          echo ""
-          echo "--- iTMS upload tail ---"
-          tail -50 /tmp/itms-upload.log
+          if grep -q "Successfully uploaded" /tmp/altool.log; then
+              echo "✅ fastlane pilot upload succeeded"
+          else
+              echo "⚠️ no explicit success marker - tail:"
+              tail -30 /tmp/altool.log
+          fi
 
       ##########################################################################
       - name: Add External Beta Testers
