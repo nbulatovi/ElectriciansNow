@@ -33,10 +33,39 @@ jobs:
         uses: actions/checkout@v4
 
       ##########################################################################
-      - name: Organize Source Dirs
+      - name: Organize Source Dirs (lean — only what runs in the app)
         run: |
+          # kivy-ios bakes everything in src/ into the .app bundle under
+          # YourApp/. Strip out files that don't belong in a shipped iOS app
+          # to (a) avoid Apple validation issues from mislabeled PNGs etc.
+          # and (b) avoid leaking secrets like fastlane/Matchfile.
           mkdir -p src/
-          rsync -av --exclude="src" --exclude=".git" --exclude=".github" $GITHUB_WORKSPACE/ src/
+          rsync -av \
+            --exclude="src" \
+            --exclude=".git*" \
+            --exclude=".github" \
+            --exclude=".claude" \
+            --exclude="fastlane" \
+            --exclude="*.md" \
+            --exclude="*.log" \
+            --exclude="*.out" \
+            --exclude="internal" \
+            --exclude="*.xml" \
+            --exclude="*.iml" \
+            --exclude=".env*" \
+            --exclude=".secrets" \
+            --exclude="ExportOptions.plist" \
+            --exclude="api_key.*" \
+            --exclude="__pycache__" \
+            --exclude="*.pyc" \
+            --exclude="build" \
+            --exclude="dist" \
+            --exclude=".cache" \
+            $GITHUB_WORKSPACE/ src/
+          echo "--- src/ contents (top level) ---"
+          ls -la src/
+          echo "--- src/ size ---"
+          du -sh src/
 
       ##########################################################################
       - name: Setup Python 3.11
@@ -56,21 +85,29 @@ jobs:
       ##########################################################################
       - name: Convert App Icons to Real PNG (source files are JPEG-disguised)
         run: |
-          # Source icons in Resources/AppIcon.appiconset/ are JPEG files with .png
-          # extension. Apple validation rejects these. Convert to real RGB PNG
-          # (no alpha channel - iOS auto-rounds icons and rejects alpha).
+          # Source icons in Resources/AppIcon.appiconset/ are JPEG files with
+          # .png extension. Apple validation rejects these. Convert to real
+          # RGB PNG in-place (so kivy-ios bakes the correct files into the
+          # bundle's YourApp/Resources/ as well as the xcassets copy).
           python3 <<'EOF'
           from PIL import Image
           import os, glob
-          src_dir = "src/Resources/AppIcon.appiconset"
+          # Convert IN-PLACE in src/ so kivy-ios bundles real PNGs
+          for src_dir in ["src/Resources/AppIcon.appiconset", "Resources/AppIcon.appiconset"]:
+              if not os.path.isdir(src_dir):
+                  continue
+              for png in sorted(glob.glob(f"{src_dir}/*.png")):
+                  im = Image.open(png).convert("RGB")
+                  im.save(png, "PNG", optimize=True)
+                  print(f"In-place converted {png}: {im.size} -> RGB PNG")
+          # Also stage a copy for xcassets injection
           out_dir = "/tmp/icons-real-png"
           os.makedirs(out_dir, exist_ok=True)
-          for png in sorted(glob.glob(f"{src_dir}/*.png")):
+          for png in sorted(glob.glob("src/Resources/AppIcon.appiconset/*.png")):
               im = Image.open(png).convert("RGB")
-              out = os.path.join(out_dir, os.path.basename(png))
-              im.save(out, "PNG", optimize=True)
-              print(f"Converted {os.path.basename(png)}: {im.size} -> RGB PNG")
+              im.save(os.path.join(out_dir, os.path.basename(png)), "PNG", optimize=True)
           EOF
+          file src/Resources/AppIcon.appiconset/120.png src/Resources/AppIcon.appiconset/1024.png 2>/dev/null
           file /tmp/icons-real-png/120.png /tmp/icons-real-png/1024.png
 
       ##########################################################################
