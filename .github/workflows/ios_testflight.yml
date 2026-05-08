@@ -217,6 +217,22 @@ jobs:
           sed -i '' 's/ENABLE_BITCODE = YES/ENABLE_BITCODE = NO/g' \
               electriciansnow.xcodeproj/project.pbxproj
 
+          # CRITICAL: set CFBundleIconName (required for iOS 11+, kivy-ios omits it)
+          # and bump CFBundleVersion to GitHub run number so each upload is unique
+          # (Apple silently drops duplicate build numbers).
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" \
+              ElectriciansNow-Info.plist 2>/dev/null || \
+              /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" \
+              ElectriciansNow-Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" \
+              ElectriciansNow-Info.plist
+
+          echo "--- Final Info.plist key fields ---"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" ElectriciansNow-Info.plist
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" ElectriciansNow-Info.plist
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" ElectriciansNow-Info.plist
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIconName" ElectriciansNow-Info.plist
+
           ls -la
 
       ##########################################################################
