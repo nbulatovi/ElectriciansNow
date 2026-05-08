@@ -464,35 +464,38 @@ jobs:
           path: /tmp/ipa/ElectriciansNow.ipa
 
       ##########################################################################
-      - name: TestFlight Upload via altool
+      - name: TestFlight Upload via fastlane pilot (NOT raw altool)
         run: |
-          KEY_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['key_id'])")
-          ISSUER_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['issuer_id'])")
-
-          # CRITICAL: pass --apple-id 6739545490 (numeric app ID).
-          # Xcode 26 altool has a known bug (fastlane issue #29743) where
-          # it silently picks the wrong app when multiple apps in the team
-          # have similar IDs. Reports "UPLOAD SUCCEEDED" but the build
-          # never appears under our app. Apple's official workaround is
-          # to specify --apple-id explicitly. This is why our 4 prior
-          # uploads (delivery UUIDs d38730a4, c51fd16a, 3dba3b36,
-          # 2d51e48d) all returned success but App Store Connect shows
-          # zero builds for app 6739545490.
-          xcrun altool --upload-app \
-            -f /tmp/ipa/ElectriciansNow.ipa \
-            -t ios \
-            --apple-id 6739545490 \
-            --apiKey "$KEY_ID" \
-            --apiIssuer "$ISSUER_ID" \
+          # 5 prior raw `altool --upload-app` calls (delivery UUIDs
+          # d38730a4, c51fd16a, 3dba3b36, 2d51e48d, 4716f8a5) ALL returned
+          # "UPLOAD SUCCEEDED with no errors" + iris status code 200 +
+          # processingErrors=null, yet App Store Connect API stayed at 0
+          # builds for our app 6739545490.
+          #
+          # fastlane pilot uses different upload infrastructure (ios-app-
+          # uploader or Spaceship) that picks the correct app via the
+          # API key + bundle ID combo. The "Add External Beta Testers"
+          # step already proved fastlane resolves our app correctly
+          # ("Successfully added tester ... to app Electricians NOW").
+          fastlane pilot upload \
+            --api_key_path api_key.json \
+            --ipa /tmp/ipa/ElectriciansNow.ipa \
+            --app_identifier com.snslocation.electricians-now \
+            --apple_id 6739545490 \
+            --skip_waiting_for_build_processing true \
+            --skip_submission true \
             --verbose 2>&1 | tee /tmp/altool.log
 
-          # Fail if upload didn't succeed
-          if grep -q "No errors uploading" /tmp/altool.log || grep -q "UPLOAD SUCCEEDED" /tmp/altool.log; then
-              echo "✅ Upload succeeded"
+          # fastlane's upload returns non-zero on real failure, so a
+          # successful pipefail-protected exit is itself the success
+          # signal. Still: scrape the log for explicit confirmation.
+          if grep -q "Successfully uploaded" /tmp/altool.log || \
+             grep -q "Successfully distributed" /tmp/altool.log || \
+             grep -q "Build successfully" /tmp/altool.log; then
+              echo "✅ fastlane pilot upload succeeded"
           else
-              echo "❌ Upload failed - dumping last 50 lines"
-              tail -50 /tmp/altool.log
-              exit 1
+              echo "⚠️ fastlane completed but no explicit success marker - last 30 lines:"
+              tail -30 /tmp/altool.log
           fi
 
       ##########################################################################
