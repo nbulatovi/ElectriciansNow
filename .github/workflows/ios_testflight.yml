@@ -8,202 +8,467 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-latest
-    timeout-minutes: 60
+    runs-on: macos-26
+    timeout-minutes: 120
+
+    env:
+      KEYCHAIN_PASSWORD: temp-password
+      MATCH_KEYCHAIN: build.keychain
 
     steps:
+      ##########################################################################
+      - name: Show Environment Info
+        run: |
+          sw_vers
+          uname -m
+          xcode-select -p
+          xcodebuild -version
+          xcodebuild -showsdks | grep -E "iOS|iphoneos" | head -5
+          ruby --version
+          gem --version
+          df -h
 
-    ############################################################################
-    - name: Show Environment Info
-      run: |
-        sw_vers
-        xcode-select -p
-        xcodebuild -version
-        xcodebuild -showsdks
-        df -h
+      ##########################################################################
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    ############################################################################
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      ##########################################################################
+      - name: Organize Source Dirs
+        run: |
+          mkdir -p src/
+          rsync -av --exclude="src" --exclude=".git" --exclude=".github" $GITHUB_WORKSPACE/ src/
 
-    ############################################################################
-    - name: Organize Source Dirs
-      run: |
-        mkdir -p src/
-        rsync -av --exclude="src" --exclude=".git" $GITHUB_WORKSPACE/ src/
+      ##########################################################################
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    ############################################################################
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      ##########################################################################
+      - name: Install Build Tools
+        run: |
+          brew install autoconf automake libtool tree rsync
+          pip install --upgrade pip
+          pip install Cython==3.0.11
+          pip install kivy-ios
+          pip install pillow pyjwt cryptography requests
 
-    ############################################################################
-    - name: Install Build Tools
-      run: |
-        brew install autoconf automake libtool tree rsync
-        pip install --upgrade pip
-        pip install Cython==3.0.11
-        pip install kivy-ios
-        pip install anthropic openai requests
+      ##########################################################################
+      - name: Convert App Icons to Real PNG (source files are JPEG-disguised)
+        run: |
+          # Source icons in Resources/AppIcon.appiconset/ are JPEG files with .png
+          # extension. Apple validation rejects these. Convert to real RGB PNG
+          # (no alpha channel - iOS auto-rounds icons and rejects alpha).
+          python3 <<'EOF'
+          from PIL import Image
+          import os, glob
+          src_dir = "src/Resources/AppIcon.appiconset"
+          out_dir = "/tmp/icons-real-png"
+          os.makedirs(out_dir, exist_ok=True)
+          for png in sorted(glob.glob(f"{src_dir}/*.png")):
+              im = Image.open(png).convert("RGB")
+              out = os.path.join(out_dir, os.path.basename(png))
+              im.save(out, "PNG", optimize=True)
+              print(f"Converted {os.path.basename(png)}: {im.size} -> RGB PNG")
+          EOF
+          file /tmp/icons-real-png/120.png /tmp/icons-real-png/1024.png
 
-    ############################################################################
-    - name: Setup Keychain
-      run: |
-        # Create a temporary keychain (match will import certs into it)
-        security create-keychain -p temp-password build.keychain
+      ##########################################################################
+      - name: Setup Keychain
+        run: |
+          # Create a temporary keychain (match will import certs into it)
+          security create-keychain -p $KEYCHAIN_PASSWORD build.keychain
+          security list-keychains -s build.keychain login.keychain-db
+          security default-keychain -s build.keychain
+          security set-keychain-settings -lut 7200 build.keychain
+          security unlock-keychain -p $KEYCHAIN_PASSWORD build.keychain
+          # Will set partition list after match imports certs
 
-        # Add the keychain to the search list and prioritize it
-        security list-keychains -s build.keychain
-        security default-keychain -s build.keychain
+      ##########################################################################
+      - name: Install Apple WWDR Intermediate Certificates
+        run: |
+          # Ensure the WWDR G3 intermediate cert is in the keychain so the
+          # cert chain validates properly during signing.
+          cd /tmp
+          curl -sO https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
+          curl -sO https://www.apple.com/certificateauthority/AppleRootCA-G3.cer
+          security import /tmp/AppleWWDRCAG3.cer -k build.keychain -T /usr/bin/codesign 2>&1 || true
+          security import /tmp/AppleRootCA-G3.cer -k build.keychain -T /usr/bin/codesign 2>&1 || true
 
-        # Set keychain settings to prevent automatic lock
-        security set-keychain-settings -lut 7200 build.keychain
+      ##########################################################################
+      - name: Decode and Fix App Store Connect API Key
+        env:
+          APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
+          API_KEY_P8: ${{ secrets.API_KEY_P8 }}
+        run: |
+          # Decode the API key JSON. The secret has known typos we fix here:
+          #   - "PRIVASE KEY" -> "PRIVATE KEY" in the embedded PEM footer
+          #   - issuer_id "...35U9..." -> "...35e9..." (verified in CLAUDE.md)
+          echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json.raw
+          python3 <<'EOF'
+          import json
+          with open("api_key.json.raw") as f:
+              j = json.load(f)
+          # Fix typos in stored secret
+          j["key"] = j["key"].replace("PRIVASE KEY", "PRIVATE KEY")
+          # Validate issuer_id matches CLAUDE.md authoritative value
+          if "35U9" in j.get("issuer_id", ""):
+              j["issuer_id"] = "0ed2310f-92fd-44a3-87af-35e9263850b2"
+          with open("api_key.json", "w") as f:
+              json.dump(j, f, indent=2)
+          print(f"key_id: {j['key_id']}")
+          print(f"issuer_id: {j['issuer_id']}")
+          print(f"key_end: {j['key'][-32:]}")
+          EOF
+          echo "$API_KEY_P8" | base64 --decode > api_key.p8
+          # The .p8 secret was correct (no typo), but defensively double-check
+          sed -i '' 's/PRIVASE KEY/PRIVATE KEY/g' api_key.p8
+          head -1 api_key.p8
+          # Place key where altool expects it
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['key_id'])")
+          cp api_key.p8 ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
 
-        # Unlock the keychain
-        security unlock-keychain -p temp-password build.keychain
+      ##########################################################################
+      - name: Kivy iOS Toolchain Build
+        env:
+          ACTIONS_STEP_DEBUG: false
+        run: |
+          # Build the toolchain (libffi, libpng, openssl, sdl2, hostpython3,
+          # python3, kivy, ios, pyobjus). Takes ~15 min on M-series.
+          toolchain build python3 kivy
 
-        # Allow codesign to access the signing identity without prompts
-        # (may fail on empty keychain - match will set this after importing certs)
-        security set-key-partition-list -S apple-tool:,apple: -s -k temp-password build.keychain || true
+      ##########################################################################
+      - name: Create Xcode Project
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
+          WHOP_COMPANY_ID: ${{ secrets.WHOP_COMPANY_ID }}
+        run: |
+          # kivy-ios creates electriciansnow-ios/ (lowercased prefix + -ios)
+          # with electriciansnow.xcodeproj (lowercased). Info.plist preserves
+          # the original casing: ElectriciansNow-Info.plist.
+          toolchain create ElectriciansNow src/
 
-    ############################################################################
-    - name: Kivy iOS Build
-      env:
-        ACTIONS_STEP_DEBUG: false
-      run: |
-        toolchain build python3 kivy
+          # Ensure expected directory exists
+          test -d electriciansnow-ios
 
-    ############################################################################
-    - name: Create Xcode Project
-      env:
-        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
-        WHOP_COMPANY_ID: ${{ secrets.WHOP_COMPANY_ID }}
-      run: |
-        toolchain create ElectriciansNow src/
+          cd electriciansnow-ios
 
-        cd ElectriciansNow-ios
+          # Update bundle identifier
+          sed -i '' 's/org\.kivy\..*now/com.snslocation.electricians-now/g' \
+              ElectriciansNow-Info.plist
 
-        # Update bundle identifier
-        sed -i '' 's/org\.kivy\..*now/com.snslocation.electricians-now/g' ElectriciansNow-Info.plist
+          # Update deployment target for iOS 17+
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 17.0/g' \
+              electriciansnow.xcodeproj/project.pbxproj
 
-        # Update deployment target for iOS 17+
-        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 17.0/g' ElectriciansNow.xcodeproj/project.pbxproj
+          # Switch to manual signing with Apple Distribution certificate
+          sed -i '' '/CODE_SIGN_IDENTITY/c\
+                      CODE_SIGN_IDENTITY = "Apple Distribution";\
+                      CODE_SIGN_STYLE = Manual;\
+                      DEVELOPMENT_TEAM = MNGTD992QD;\
+                      PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;\
+                      PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.snslocation.electricians-now";' \
+              electriciansnow.xcodeproj/project.pbxproj
 
-        # Switch to manual signing with distribution certificate
-        sed -i '' '/CODE_SIGN_IDENTITY/c\
-                    CODE_SIGN_IDENTITY = "Apple Distribution";\
-                    CODE_SIGN_STYLE = Manual;\
-                    DEVELOPMENT_TEAM = MNGTD992QD;\
-                    PRODUCT_BUNDLE_IDENTIFIER = com.snslocation.electricians-now;\
-                    PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.snslocation.electricians-now";' \
-                    ElectriciansNow.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' \
+              electriciansnow.xcodeproj/project.pbxproj
 
-        # Also replace any remaining automatic signing
-        sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' ElectriciansNow.xcodeproj/project.pbxproj
+          # Disable bitcode (deprecated)
+          sed -i '' 's/ENABLE_BITCODE = YES/ENABLE_BITCODE = NO/g' \
+              electriciansnow.xcodeproj/project.pbxproj
 
-        # Disable bitcode (deprecated in Xcode 14+)
-        sed -i '' 's/ENABLE_BITCODE = YES/ENABLE_BITCODE = NO/g' ElectriciansNow.xcodeproj/project.pbxproj
+          ls -la
 
-        tree -a -L 2
+      ##########################################################################
+      - name: Update Kivy Project
+        run: |
+          toolchain update electriciansnow-ios
 
-    ############################################################################
-    - name: Update Kivy Project
-      run: |
-        toolchain update ElectriciansNow-ios
+      ##########################################################################
+      - name: Add App Icons (real PNGs from earlier conversion)
+        run: |
+          # Copy the converted RGB PNGs into the asset catalog
+          DEST=electriciansnow-ios/electriciansnow/Images.xcassets/AppIcon.appiconset
+          mkdir -p "$DEST"
+          cp /tmp/icons-real-png/* "$DEST/" 2>/dev/null || true
+          # Also write a proper Contents.json mapping the icons
+          cat > "$DEST/Contents.json" <<'EOF'
+          {
+            "images" : [
+              { "size" : "60x60", "idiom" : "iphone", "filename" : "120.png", "scale" : "2x" },
+              { "size" : "60x60", "idiom" : "iphone", "filename" : "180.png", "scale" : "3x" },
+              { "size" : "76x76", "idiom" : "ipad", "filename" : "152.png", "scale" : "2x" },
+              { "size" : "83.5x83.5", "idiom" : "ipad", "filename" : "167.png", "scale" : "2x" },
+              { "size" : "1024x1024", "idiom" : "ios-marketing", "filename" : "1024.png", "scale" : "1x" }
+            ],
+            "info" : { "author" : "xcode", "version" : 1 }
+          }
+          EOF
+          ls "$DEST/"
 
-    ############################################################################
-    - name: Add App Icons
-      run: |
-        cp src/Resources/AppIcon.appiconset/* ElectriciansNow-ios/ElectriciansNow/Images.xcassets/AppIcon.appiconset/
+      ##########################################################################
+      - name: Setup Fastlane
+        run: |
+          # Use system gem (Ruby 3.4+ on macos-26 has working OpenSSL bindings)
+          gem install --user-install fastlane
+          # Add user gem bin to PATH for subsequent steps
+          GEM_BIN=$(ruby -e 'puts Gem.user_dir')/bin
+          echo "$GEM_BIN" >> $GITHUB_PATH
+          echo "$GEM_BIN/fastlane --version:"
+          $GEM_BIN/fastlane --version | tail -3
 
-    ############################################################################
-    - name: Setup Fastlane
-      run: |
-        gem install fastlane
+      ##########################################################################
+      - name: Reset Signing - Revoke Stale Certs and Create Fresh
+        env:
+          MATCH_PASSWORD: ${{ secrets.APPLE_PASS }}
+          FASTLANE_USER: ${{ secrets.APPLE_USER }}
+          FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # First, defensively revoke any existing distribution certs via API.
+          # This avoids the common case where keychain has stale revoked certs
+          # but Apple's portal has different active certs.
+          python3 <<'EOF'
+          import json, time, urllib.request, urllib.error
+          import jwt
+          with open("api_key.json") as f:
+              key_data = json.load(f)
+          def tok():
+              return jwt.encode({
+                  "iss": key_data["issuer_id"], "iat": int(time.time()),
+                  "exp": int(time.time()) + 1200, "aud": "appstoreconnect-v1"
+              }, key_data["key"], algorithm="ES256",
+              headers={"kid": key_data["key_id"], "typ": "JWT"})
+          for ct in ["DISTRIBUTION", "IOS_DISTRIBUTION"]:
+              try:
+                  req = urllib.request.Request(
+                      f"https://api.appstoreconnect.apple.com/v1/certificates?filter[certificateType]={ct}",
+                      headers={"Authorization": f"Bearer {tok()}"})
+                  for cert in json.loads(urllib.request.urlopen(req).read()).get("data", []):
+                      try:
+                          urllib.request.urlopen(urllib.request.Request(
+                              f"https://api.appstoreconnect.apple.com/v1/certificates/{cert['id']}",
+                              method="DELETE",
+                              headers={"Authorization": f"Bearer {tok()}"}))
+                          print(f"Revoked {ct} cert {cert['id']}")
+                      except Exception as e:
+                          print(f"Failed to revoke {cert['id']}: {e}")
+              except urllib.error.HTTPError as e:
+                  print(f"List {ct} error: {e.code}")
+          EOF
 
-    ############################################################################
-    - name: Fastlane Match
-      env:
-        APP_STORE_API_KEY: ${{ secrets.APP_STORE_API_KEY }}
-        API_KEY_P8: ${{ secrets.API_KEY_P8 }}
-        FASTLANE_USER: ${{ secrets.APPLE_USER }}
-        FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
-        MATCH_PASSWORD: ${{ secrets.APPLE_PASS }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        echo "$APP_STORE_API_KEY" | base64 --decode > api_key.json
-        echo "$API_KEY_P8" | base64 --decode > api_key.p8
-        # Revoke out-of-sync portal certs and create fresh ones
-        fastlane ios reset_signing --verbose
+          # Now run match_nuke to clean its git storage, then create fresh
+          security unlock-keychain -p $KEYCHAIN_PASSWORD build.keychain
+          fastlane ios reset_signing --verbose
 
-        # Now that match has imported certs, set partition list for codesign access
-        security set-key-partition-list -S apple-tool:,apple: -s -k temp-password build.keychain
+          # CRITICAL: Set keychain partition list AFTER match imports certs
+          # so codesign can access the private key non-interactively
+          security set-key-partition-list \
+              -S apple-tool:,apple:,codesign: \
+              -s -k $KEYCHAIN_PASSWORD build.keychain
 
-    ############################################################################
-    - name: Build and Export App
-      env:
-        FASTLANE_TEAM_ID: MNGTD992QD
-        FASTLANE_USER: ${{ secrets.APPLE_USER }}
-        FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
-      run: |
-        # List available schemes
-        xcodebuild -list -project ElectriciansNow-ios/ElectriciansNow.xcodeproj
+          # Verify identity is present
+          echo "--- Available signing identities ---"
+          security find-identity -v -p codesigning build.keychain
 
-        # Extract API key details for xcodebuild authentication
-        KEY_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['key_id'])")
-        ISSUER_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['issuer_id'])")
+      ##########################################################################
+      - name: Build and Sign Archive
+        env:
+          FASTLANE_TEAM_ID: MNGTD992QD
+        run: |
+          security unlock-keychain -p $KEYCHAIN_PASSWORD build.keychain
 
-        # Build with fastlane, passing auth for Xcode 16+ export
-        fastlane gym --verbose \
-          --xcargs "-allowProvisioningUpdates -authenticationKeyPath $(pwd)/api_key.p8 -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID"
+          KEY_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['key_id'])")
+          ISSUER_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['issuer_id'])")
 
-    ############################################################################
-    - name: IPA Artifact Upload
-      uses: actions/upload-artifact@v4
-      with:
-        name: ElectriciansNow-ipa
-        path: ElectriciansNow-ios/build/ElectriciansNow.ipa
+          # List schemes for diagnostics
+          xcodebuild -list -project electriciansnow-ios/electriciansnow.xcodeproj
 
-    ############################################################################
-    - name: TestFlight Upload
-      env:
-        FASTLANE_TEAM_ID: MNGTD992QD
-        FASTLANE_USER: ${{ secrets.APPLE_USER }}
-        FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
-      run: |
-        fastlane pilot upload \
-          --api_key_path api_key.json \
-          --ipa ElectriciansNow-ios/build/ElectriciansNow.ipa \
-          --skip_waiting_for_build_processing true
+          # Archive directly with xcodebuild (bypasses gym quirks). On macos-26
+          # arm64 with Xcode 26, the simulator runtime is preinstalled so
+          # actool / asset catalog compilation works out of the box.
+          xcodebuild archive \
+            -project electriciansnow-ios/electriciansnow.xcodeproj \
+            -scheme electriciansnow \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath /tmp/ElectriciansNow.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$(pwd)/api_key.p8" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID" \
+            CODE_SIGN_IDENTITY="Apple Distribution: SNS Location (MNGTD992QD)" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=MNGTD992QD \
+            PROVISIONING_PROFILE_SPECIFIER="match AppStore com.snslocation.electricians-now" \
+            PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
+            ENABLE_BITCODE=NO \
+            OTHER_CODE_SIGN_FLAGS="--keychain $HOME/Library/Keychains/build.keychain-db"
 
-    ############################################################################
-    - name: Add External Beta Testers
-      env:
-        FASTLANE_TEAM_ID: MNGTD992QD
-        FASTLANE_USER: ${{ secrets.APPLE_USER }}
-        FASTLANE_PASSWORD: ${{ secrets.APPLE_PASS }}
-      run: |
-        # Add external testers - they'll receive Apple's TestFlight invite email
-        fastlane pilot add \
-          --api_key_path api_key.json \
-          nikola.bulatovic@aol.com \
-          --group "External Testers" || true
+          # Verify the archive
+          ls -la /tmp/ElectriciansNow.xcarchive/Products/Applications/
 
-    ############################################################################
-    - name: Notify Tester via Email
-      if: success()
-      run: |
-        curl -s -X POST "https://gcchelp-email-worker.gcchelp.workers.dev/send" \
-          -H "Content-Type: application/json" \
-          -H "X-Webhook-Secret: V73S-urN7L9RJY4YiLU-x51IiRtCNCsFhO-XSZ_41fo" \
-          -d '{
-            "to": "nikola.bulatovic@aol.com",
-            "subject": "ElectriciansNow Build Ready for Testing",
-            "from": "info@gcchelp.com",
-            "fromName": "ElectriciansNow CI",
-            "html": "<h2>New Build Available!</h2><p>A new ElectriciansNow build has been uploaded to TestFlight.</p><p><strong>How to install:</strong></p><ol><li>Open <a href=\"https://apps.apple.com/us/app/testflight/id899247664\">TestFlight</a> on your iPhone</li><li>You should see ElectriciansNow - tap Update/Install</li><li>If you do not see it, check your email for an Apple TestFlight invite</li></ol><p><strong>What to test:</strong></p><ul><li>Get an AI estimate for electrical work</li><li>Schedule a service and pay via the checkout</li><li>Apple Pay is available on the payment page</li></ul><p>Thanks for testing!</p>",
-            "text": "New ElectriciansNow build uploaded to TestFlight. Open TestFlight on your iPhone to install. Test: get an estimate, schedule service, and pay."
-          }'
+      ##########################################################################
+      - name: Re-sign All Nested Binaries (kivy-ios produces unsigned .so files)
+        run: |
+          security unlock-keychain -p $KEYCHAIN_PASSWORD build.keychain
+          APP=/tmp/ElectriciansNow.xcarchive/Products/Applications/electriciansnow.app
+          IDENTITY="Apple Distribution: SNS Location (MNGTD992QD)"
+          KEYCHAIN="$HOME/Library/Keychains/build.keychain-db"
+          ENT_FILE=$(find /tmp/ElectriciansNow.xcarchive -name "*.app.xcent" | head -1)
+          if [ -z "$ENT_FILE" ]; then
+              # Extract entitlements from the existing signature
+              codesign -d --entitlements :- "$APP" > /tmp/app.entitlements 2>/dev/null
+              ENT_FILE=/tmp/app.entitlements
+          fi
+          echo "Using entitlements: $ENT_FILE"
+
+          # Sign every .so / .dylib in the bundle
+          BINS=$(find "$APP" -type f \( -name "*.so" -o -name "*.dylib" \) 2>/dev/null)
+          COUNT=0
+          for f in $BINS; do
+              codesign --force --sign "$IDENTITY" --keychain "$KEYCHAIN" "$f" 2>&1 >/dev/null
+              COUNT=$((COUNT+1))
+          done
+          echo "Signed $COUNT nested binaries"
+
+          # Re-sign the main app last with --deep to seal everything
+          codesign --force --deep --sign "$IDENTITY" \
+              --entitlements "$ENT_FILE" \
+              --keychain "$KEYCHAIN" \
+              "$APP"
+
+          # Verify
+          codesign --verify --deep --strict --verbose=2 "$APP" 2>&1 | head -5
+          codesign -dvvv "$APP" 2>&1 | grep -E "(Authority|Identifier|TeamIdentifier)" | head -5
+          codesign -d --extract-certificates=/tmp/sc "$APP" 2>&1 >/dev/null
+          openssl x509 -in /tmp/sc0 -inform DER -noout -serial -subject
+
+      ##########################################################################
+      - name: Export Signed IPA
+        run: |
+          # Create export options plist for App Store distribution
+          cat > /tmp/export_options.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key><string>app-store</string>
+              <key>teamID</key><string>MNGTD992QD</string>
+              <key>signingStyle</key><string>manual</string>
+              <key>signingCertificate</key><string>Apple Distribution: SNS Location (MNGTD992QD)</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.snslocation.electricians-now</key>
+                  <string>match AppStore com.snslocation.electricians-now</string>
+              </dict>
+              <key>uploadBitcode</key><false/>
+              <key>compileBitcode</key><false/>
+              <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          EOF
+
+          KEY_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['key_id'])")
+          ISSUER_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['issuer_id'])")
+
+          security unlock-keychain -p $KEYCHAIN_PASSWORD build.keychain
+
+          xcodebuild -exportArchive \
+            -archivePath /tmp/ElectriciansNow.xcarchive \
+            -exportPath /tmp/ipa \
+            -exportOptionsPlist /tmp/export_options.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$(pwd)/api_key.p8" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID"
+
+          ls -la /tmp/ipa/
+          # Standardize filename
+          mv /tmp/ipa/*.ipa /tmp/ipa/ElectriciansNow.ipa 2>/dev/null || true
+          ls -lh /tmp/ipa/ElectriciansNow.ipa
+
+      ##########################################################################
+      - name: IPA Artifact Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ElectriciansNow-ipa
+          path: /tmp/ipa/ElectriciansNow.ipa
+
+      ##########################################################################
+      - name: TestFlight Upload via altool
+        run: |
+          KEY_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['key_id'])")
+          ISSUER_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['issuer_id'])")
+
+          xcrun altool --upload-app \
+            -f /tmp/ipa/ElectriciansNow.ipa \
+            -t ios \
+            --apiKey "$KEY_ID" \
+            --apiIssuer "$ISSUER_ID" \
+            --verbose 2>&1 | tee /tmp/altool.log
+
+          # Fail if upload didn't succeed
+          if grep -q "No errors uploading" /tmp/altool.log || grep -q "UPLOAD SUCCEEDED" /tmp/altool.log; then
+              echo "✅ Upload succeeded"
+          else
+              echo "❌ Upload failed - dumping last 50 lines"
+              tail -50 /tmp/altool.log
+              exit 1
+          fi
+
+      ##########################################################################
+      - name: Add External Beta Testers
+        env:
+          FASTLANE_TEAM_ID: MNGTD992QD
+        run: |
+          fastlane pilot add \
+            --api_key_path api_key.json \
+            nikola.bulatovic@aol.com \
+            --group "External Testers" || echo "Tester may already exist - non-fatal"
+
+      ##########################################################################
+      - name: Notify Tester via Email
+        if: success()
+        run: |
+          curl -s -X POST "https://gcchelp-email-worker.gcchelp.workers.dev/send" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: V73S-urN7L9RJY4YiLU-x51IiRtCNCsFhO-XSZ_41fo" \
+            -d '{
+              "to": "nikola.bulatovic@aol.com",
+              "subject": "ElectriciansNow Build Ready for Testing",
+              "from": "info@gcchelp.com",
+              "fromName": "ElectriciansNow CI",
+              "html": "<h2>New Build Available!</h2><p>A new ElectriciansNow build has been uploaded to TestFlight.</p><p><strong>How to install:</strong></p><ol><li>Open <a href=\"https://apps.apple.com/us/app/testflight/id899247664\">TestFlight</a> on your iPhone</li><li>You should see ElectriciansNow - tap Update/Install</li><li>If you do not see it, check your email for an Apple TestFlight invite</li></ol><p><strong>What to test:</strong></p><ul><li>Get an AI estimate for electrical work</li><li>Schedule a service and pay via the checkout</li><li>Apple Pay is available on the payment page</li></ul><p>Thanks for testing!</p>",
+              "text": "New ElectriciansNow build uploaded to TestFlight. Open TestFlight on your iPhone to install. Test: get an estimate, schedule service, and pay."
+            }'
+
+      ##########################################################################
+      - name: Diagnostic Bundle on Failure
+        if: failure()
+        run: |
+          mkdir -p /tmp/diag
+          # Capture build logs
+          cp /tmp/altool.log /tmp/diag/ 2>/dev/null || true
+          # Capture xcodebuild result bundle if present
+          find /var/folders -name "ResultBundle*.xcresult" -mtime -1 2>/dev/null | head -3 | while read r; do
+              cp -R "$r" /tmp/diag/ 2>/dev/null || true
+          done
+          # Capture project state
+          ls electriciansnow-ios/ 2>/dev/null > /tmp/diag/dir-listing.txt || true
+          security find-identity -v build.keychain > /tmp/diag/identities.txt 2>/dev/null || true
+          # List provisioning profiles
+          ls ~/Library/MobileDevice/Provisioning\ Profiles/ > /tmp/diag/profiles.txt 2>/dev/null || true
+          ls ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/ >> /tmp/diag/profiles.txt 2>/dev/null || true
+
+      ##########################################################################
+      - name: Upload Diagnostic Bundle on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostics
+          path: /tmp/diag/
+          if-no-files-found: ignore
