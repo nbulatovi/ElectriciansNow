@@ -469,9 +469,19 @@ jobs:
           KEY_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['key_id'])")
           ISSUER_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['issuer_id'])")
 
+          # CRITICAL: pass --apple-id 6739545490 (numeric app ID).
+          # Xcode 26 altool has a known bug (fastlane issue #29743) where
+          # it silently picks the wrong app when multiple apps in the team
+          # have similar IDs. Reports "UPLOAD SUCCEEDED" but the build
+          # never appears under our app. Apple's official workaround is
+          # to specify --apple-id explicitly. This is why our 4 prior
+          # uploads (delivery UUIDs d38730a4, c51fd16a, 3dba3b36,
+          # 2d51e48d) all returned success but App Store Connect shows
+          # zero builds for app 6739545490.
           xcrun altool --upload-app \
             -f /tmp/ipa/ElectriciansNow.ipa \
             -t ios \
+            --apple-id 6739545490 \
             --apiKey "$KEY_ID" \
             --apiIssuer "$ISSUER_ID" \
             --verbose 2>&1 | tee /tmp/altool.log
