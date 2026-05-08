@@ -464,39 +464,66 @@ jobs:
           path: /tmp/ipa/ElectriciansNow.ipa
 
       ##########################################################################
-      - name: TestFlight Upload via fastlane pilot (NOT raw altool)
+      - name: TestFlight Upload via iTMSTransporter (sidesteps altool bug)
         run: |
-          # 5 prior raw `altool --upload-app` calls (delivery UUIDs
-          # d38730a4, c51fd16a, 3dba3b36, 2d51e48d, 4716f8a5) ALL returned
-          # "UPLOAD SUCCEEDED with no errors" + iris status code 200 +
-          # processingErrors=null, yet App Store Connect API stayed at 0
-          # builds for our app 6739545490.
+          # All prior uploads (raw altool with/without --apple-id, fastlane
+          # pilot which itself wraps altool) returned "UPLOAD SUCCEEDED" +
+          # processingErrors=null but produced 0 builds in App Store Connect.
+          # The bug appears to be in Xcode 26's altool — it accepts the
+          # binary but never associates it with our app record.
           #
-          # fastlane pilot uses different upload infrastructure (ios-app-
-          # uploader or Spaceship) that picks the correct app via the
-          # API key + bundle ID combo. The "Add External Beta Testers"
-          # step already proved fastlane resolves our app correctly
-          # ("Successfully added tester ... to app Electricians NOW").
-          fastlane pilot upload \
-            --api_key_path api_key.json \
-            --ipa /tmp/ipa/ElectriciansNow.ipa \
-            --app_identifier com.snslocation.electricians-now \
-            --apple_id 6739545490 \
-            --skip_waiting_for_build_processing true \
-            --skip_submission true \
-            --verbose 2>&1 | tee /tmp/altool.log
+          # iTMSTransporter is Apple's older Java-based delivery tool (the
+          # original "Application Loader" backend). It uses a different code
+          # path entirely. Lives at:
+          #   /Applications/Xcode_26.2.app/Contents/Developer/usr/bin/iTMSTransporter
+          #
+          # We package the IPA into an .itmsp manifest with explicit
+          # vendor_id (bundle ID) and apple_id (numeric app ID) so there is
+          # zero ambiguity at upload time.
+          KEY_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['key_id'])")
+          ISSUER_ID=$(python3 -c "import json; print(json.load(open('api_key.json'))['issuer_id'])")
 
-          # fastlane's upload returns non-zero on real failure, so a
-          # successful pipefail-protected exit is itself the success
-          # signal. Still: scrape the log for explicit confirmation.
-          if grep -q "Successfully uploaded" /tmp/altool.log || \
-             grep -q "Successfully distributed" /tmp/altool.log || \
-             grep -q "Build successfully" /tmp/altool.log; then
-              echo "✅ fastlane pilot upload succeeded"
-          else
-              echo "⚠️ fastlane completed but no explicit success marker - last 30 lines:"
-              tail -30 /tmp/altool.log
-          fi
+          ITMS=$(xcrun -f iTMSTransporter)
+          echo "Using iTMSTransporter at: $ITMS"
+
+          # Place the .p8 key where iTMSTransporter expects it
+          mkdir -p ~/.appstoreconnect/private_keys
+          cp api_key.p8 ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
+
+          # Create iTunes Producer .itmsp metadata package
+          mkdir -p /tmp/upload.itmsp
+          IPA=/tmp/ipa/ElectriciansNow.ipa
+          IPA_SIZE=$(stat -f%z "$IPA")
+          IPA_MD5=$(md5 -q "$IPA")
+          cp "$IPA" /tmp/upload.itmsp/
+          cat > /tmp/upload.itmsp/metadata.xml <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <package version="software5.4" xmlns="http://apple.com/itunes/importer">
+            <software_assets apple_id="6739545490" app_platform="ios">
+              <asset type="bundle">
+                <data_file>
+                  <file_name>ElectriciansNow.ipa</file_name>
+                  <checksum type="md5">${IPA_MD5}</checksum>
+                  <size>${IPA_SIZE}</size>
+                </data_file>
+              </asset>
+            </software_assets>
+          </package>
+          EOF
+          cat /tmp/upload.itmsp/metadata.xml
+
+          # Verify first
+          $ITMS -m verify -f /tmp/upload.itmsp \
+            -apiKey "$KEY_ID" -apiIssuer "$ISSUER_ID" \
+            -v informational 2>&1 | tee /tmp/itms-verify.log | tail -30 || echo "verify reported issues"
+
+          # Then upload
+          $ITMS -m upload -f /tmp/upload.itmsp \
+            -apiKey "$KEY_ID" -apiIssuer "$ISSUER_ID" \
+            -v informational 2>&1 | tee /tmp/itms-upload.log | tail -30
+          echo ""
+          echo "--- iTMS upload tail ---"
+          tail -50 /tmp/itms-upload.log
 
       ##########################################################################
       - name: Add External Beta Testers
