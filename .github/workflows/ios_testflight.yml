@@ -217,14 +217,32 @@ jobs:
           sed -i '' 's/ENABLE_BITCODE = YES/ENABLE_BITCODE = NO/g' \
               electriciansnow.xcodeproj/project.pbxproj
 
-          # CRITICAL: set CFBundleIconName (required for iOS 11+, kivy-ios omits it)
-          # and bump CFBundleVersion to GitHub run number so each upload is unique
-          # (Apple silently drops duplicate build numbers).
+          # CRITICAL Info.plist fixes for TestFlight/App Store processing:
+          #
+          # 1. CFBundleIconName: required for iOS 11+ apps with asset catalog;
+          #    kivy-ios omits it. Apple silently drops the build without it.
+          # 2. CFBundleVersion: must be unique per upload (Apple drops duplicates).
+          #    Use GitHub run number so each CI run = fresh build.
+          # 3. ITSAppUsesNonExemptEncryption: required by Apple for App Store
+          #    submissions. We use only standard HTTPS / Apple-provided crypto,
+          #    so set false. Without this, Apple's processing stalls or rejects.
           /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" \
               ElectriciansNow-Info.plist 2>/dev/null || \
               /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" \
               ElectriciansNow-Info.plist
+
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" \
+              ElectriciansNow-Info.plist
+
+          /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" \
+              ElectriciansNow-Info.plist 2>/dev/null || \
+              /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" \
+              ElectriciansNow-Info.plist
+
+          # Restore display name (kivy-ios writes lowercase)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'Electricians NOW'" \
+              ElectriciansNow-Info.plist 2>/dev/null || \
+              /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 'Electricians NOW'" \
               ElectriciansNow-Info.plist
 
           echo "--- Final Info.plist key fields ---"
@@ -232,6 +250,8 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" ElectriciansNow-Info.plist
           /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" ElectriciansNow-Info.plist
           /usr/libexec/PlistBuddy -c "Print :CFBundleIconName" ElectriciansNow-Info.plist
+          /usr/libexec/PlistBuddy -c "Print :ITSAppUsesNonExemptEncryption" ElectriciansNow-Info.plist
+          /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" ElectriciansNow-Info.plist
 
           ls -la
 
