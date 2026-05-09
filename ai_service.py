@@ -28,41 +28,57 @@ class AIEstimator:
     """
 
     # System prompt for electrical estimations
-    ESTIMATE_SYSTEM_PROMPT = """You are an expert residential electrical contractor.
-You produce a price RANGE for every job, plus interactive multiple-choice
-follow-up questions that let the customer narrow the range with a single tap.
+    ESTIMATE_SYSTEM_PROMPT = """You are a senior US residential electrical
+contractor. The customer typed a brief description; you must estimate
+the cost AND propose tap-to-answer follow-up questions that are SPECIFIC
+to their exact described job. Generic questions are forbidden.
 
-Always reply with ONE JSON object, no surrounding prose. Schema:
+Reply with ONE JSON object only, no surrounding prose, no markdown fences.
 
+Schema:
 {
   "estimated_cost": <int midpoint of low/high>,
   "cost_range_low": <int>,
   "cost_range_high": <int>,
   "confidence": "low" | "medium" | "high",
-  "explanation": "<2-3 short sentences explaining the estimate>",
+  "explanation": "<2-3 short sentences specific to the job>",
   "clarifying_questions": [
     {
-      "question": "<short single-sentence question>",
+      "question": "<single-sentence question that names a specific cost driver for THIS job>",
       "options": [
-        {"label": "<short tap-friendly answer, max 6 words>",
-         "context": "<one-line clarifying fact this answer adds>"}
+        {"label": "<tap-friendly answer, max 6 words>",
+         "context": "<one-line factual addition to the estimate context>"}
       ]
     }
   ]
 }
 
-Rules:
-1. ALWAYS give a numeric range. Never refuse with "need more details".
-2. If the high/low ratio > 2.5x, output 1-3 clarifying_questions, each with
-   2-4 options. Each option must be a complete answer the user can tap
-   without typing. Include "I don't know" / "Not sure" as one option when
-   the answer is technical.
-3. If confidence is "high" (high/low ratio < 1.4x), output zero
-   clarifying_questions - the user can proceed to schedule.
-4. The questions should target the largest sources of cost variance:
-   existing wiring vs new, ceiling height / accessibility, fixture quality,
-   number of units, location indoor/outdoor, permit needs, age of building.
-5. Baseline US residential rates:
+HARD RULES:
+1. Every question MUST mention details from the user's actual description.
+   - User said "ceiling fan in master bedroom"? Ask about that specific
+     ceiling: existing fan there, height, attic access above the master.
+     NOT "is there existing wiring" with no reference to bedroom/fan.
+   - User said "kitchen outlet near sink"? Ask about GFCI requirements,
+     under-cabinet wiring, granite countertop drilling.
+   - User said "panel making humming"? Ask whether the breakers are tripping,
+     age of the panel, brand (Federal Pacific / Zinsco are known issues).
+2. NEVER use the boilerplate questions "How many fixtures or outlets",
+   "Is existing wiring already in place", "Where in the home". Those are
+   forbidden unless rephrased to specifically reference what the user typed.
+3. ALWAYS give a numeric range. Never refuse.
+4. If the high/low ratio is > 2.5x, output 1-3 clarifying_questions with
+   2-4 options each. Include "I don't know" / "Not sure" as the LAST option
+   only when the answer is genuinely technical (e.g. wire gauge, breaker
+   amperage). Never include "I don't know" for questions a homeowner can
+   easily answer.
+5. If high/low ratio < 1.4x, output zero clarifying_questions.
+6. Each `option.label` is what the user taps - phrase it as a complete
+   answer in plain language, max 6 words.
+7. Each `option.context` is what gets appended to the estimate context if
+   that option is chosen - phrase as a factual sentence in second person
+   ("user has existing fan; existing wiring & box present").
+
+Baseline US residential rates:
    - Labor $80-150/hour
    - Outlet/switch: $150-250 each
    - Ceiling fan replacement (existing wiring): $180-300
@@ -73,7 +89,9 @@ Rules:
    - Panel upgrade 200A: $1,800-4,000
    - EV charger 240V: $800-2,000
    - Whole-house rewiring: $8,000-20,000
-6. `explanation`: 2-3 SHORT sentences, plain language, no bullet points."""
+
+`explanation`: 2-3 SHORT sentences, plain language, refer to the specific
+job the user described. No bullet points."""
 
     CHAT_SYSTEM_PROMPT = """You are a helpful electrical contractor assistant for the ElectriciansNow app.
 Answer questions about electrical work, safety, costs, and help users understand their electrical needs.
@@ -116,13 +134,23 @@ Keep responses brief and mobile-friendly (under 200 words when possible)."""
         prompt = f"Estimate this electrical work:\n\n{job_description}"
 
         try:
+            from app_logger import log, log_exception
+        except Exception:
+            log = lambda *a, **k: None
+            log_exception = lambda *a, **k: None
+        log("ai", "get_estimate provider", provider=self.provider,
+            anthropic_present=bool(self.anthropic_key),
+            openai_present=bool(self.openai_key))
+        try:
             if self.provider == 'anthropic':
                 return self._get_anthropic_estimate(prompt)
             elif self.provider == 'openai':
                 return self._get_openai_estimate(prompt)
             else:
+                log("ai", "FALLBACK provider used - questions will be generic!")
                 return self._get_fallback_estimate(job_description)
         except Exception as e:
+            log_exception("ai", "estimate raised", e)
             return {
                 'estimated_cost': 0,
                 'explanation': f'Error getting estimate: {str(e)}',
@@ -131,32 +159,42 @@ Keep responses brief and mobile-friendly (under 200 words when possible)."""
 
     def _get_anthropic_estimate(self, prompt: str) -> dict:
         """Get estimate using Anthropic Claude API"""
+        try:
+            from app_logger import log
+        except Exception:
+            log = lambda *a, **k: None
         client = anthropic.Anthropic(api_key=self.anthropic_key)
-
+        log("ai", "anthropic call", prompt_chars=len(prompt))
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
+            model="claude-sonnet-4-5",
+            max_tokens=1500,
             system=self.ESTIMATE_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}]
         )
-
         response_text = message.content[0].text
+        log("ai", "anthropic response", chars=len(response_text),
+            preview=response_text[:600])
         return self._parse_estimate_response(response_text)
 
     def _get_openai_estimate(self, prompt: str) -> dict:
         """Get estimate using OpenAI ChatGPT API"""
+        try:
+            from app_logger import log
+        except Exception:
+            log = lambda *a, **k: None
         client = openai.OpenAI(api_key=self.openai_key)
-
+        log("ai", "openai call", prompt_chars=len(prompt))
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": self.ESTIMATE_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=1024
+            max_tokens=1500
         )
-
         response_text = response.choices[0].message.content
+        log("ai", "openai response", chars=len(response_text),
+            preview=response_text[:600])
         return self._parse_estimate_response(response_text)
 
     def _parse_estimate_response(self, response_text: str) -> dict:

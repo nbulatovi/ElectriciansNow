@@ -117,11 +117,13 @@ def create_checkout(amount_dollars, description, metadata=None):
         purchase_url = result.get("purchase_url", "")
         if purchase_url and not purchase_url.startswith("http"):
             purchase_url = f"{WHOP_CHECKOUT_BASE}{purchase_url}"
+        plan_id = (result.get("plan") or {}).get("id") if isinstance(result.get("plan"), dict) else None
         log("whop", "checkout created", checkout_id=result.get("id"),
-            purchase_url=purchase_url)
+            plan_id=plan_id, purchase_url=purchase_url)
         return {
             "status": "created",
             "checkout_id": result.get("id"),
+            "plan_id": plan_id,
             "purchase_url": purchase_url,
         }
 
@@ -150,6 +152,54 @@ def get_payment(payment_id):
             return response.json()
     except Exception as e:
         log_exception("whop", "get_payment raised", e)
+    return None
+
+
+def list_recent_payments(limit=20, plan_id=None):
+    """List recent payments for our merchant (used to verify a checkout
+    completed). Whop's API returns a paginated list - we filter by plan_id."""
+    import requests
+    log("whop", "list_recent_payments", plan_id=plan_id, limit=limit)
+    try:
+        params = {"per": limit}
+        if plan_id:
+            params["plan_id"] = plan_id
+        response = requests.get(
+            f"{WHOP_BASE_URL}/payments",
+            headers=_headers(),
+            params=params,
+            timeout=15,
+        )
+        log("whop", "list_payments response", status_code=response.status_code,
+            body=response.text[:500])
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        log_exception("whop", "list_payments raised", e)
+    return None
+
+
+def find_completed_payment(plan_id, since_ts=None):
+    """Return a completed/succeeded payment for the given plan_id.
+
+    `since_ts` is currently advisory - we don't gate on it because Whop's
+    /payments endpoint returns recent first and our plan IDs are unique
+    per checkout, so any matching plan_id IS the one we just created.
+    """
+    data = list_recent_payments(plan_id=plan_id, limit=20)
+    if not data:
+        return None
+    items = data.get("data") if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        items = []
+    for p in items:
+        if p.get("plan_id") != plan_id:
+            continue
+        status = (p.get("status") or "").lower()
+        if status in ("succeeded", "paid", "completed", "active", "captured"):
+            log("whop", "found completed payment", payment_id=p.get("id"),
+                status=status)
+            return p
     return None
 
 

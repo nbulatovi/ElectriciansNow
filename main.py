@@ -17,6 +17,7 @@ from kivy.metrics import dp
 from kivy.animation import Animation
 from threading import Thread
 import os
+import time
 
 # Register the Nintendo display font if bundled
 try:
@@ -47,6 +48,7 @@ class HomeScreen(Screen):
     address = StringProperty("")
     locating = StringProperty("")
     suggestions = ListProperty([])
+    task_description = StringProperty("")
 
     _last_typed = ""
     _autocomplete_event = None
@@ -57,6 +59,20 @@ class HomeScreen(Screen):
         if prefs.get("address") and not self.address:
             self.address = prefs["address"]
         telemetry.track("screen_changed", to="home")
+
+    def start_estimate(self):
+        """User typed a task and tapped Get Estimate -> jump to estimate flow."""
+        if not self.task_description.strip():
+            telemetry.track("estimate_blocked", reason="empty_task")
+            return
+        telemetry.track("home_start_estimate", chars=len(self.task_description))
+        # Pass description to the estimate screen
+        if self.manager:
+            est = self.manager.get_screen("estimate")
+            est.job_description = self.task_description
+            self.manager.current = "estimate"
+            # Auto-fire the estimate
+            Clock.schedule_once(lambda dt: est.get_estimate(), 0.15)
 
     def address_text_changed(self, text):
         # Mirror to property
@@ -302,6 +318,9 @@ class ScheduleScreen(Screen):
             self.phone = prefs["phone"]
         telemetry.track("screen_changed", to="schedule")
 
+    payment_status = StringProperty("")
+    payment_polling = BooleanProperty(False)
+
     def confirm_booking(self):
         if not self.address.strip():
             self._popup("Hold up", "Please enter your address.")
@@ -327,25 +346,83 @@ class ScheduleScreen(Screen):
         description = f"Electrician Service - {self.selected_date}"
         telemetry.track("payment_started", cost_cents=cost_cents,
                         date=self.selected_date, time=self.selected_time)
+        self.payment_status = "Opening Whop checkout..."
         result = applepay.preauthorize(cost_cents, description)
 
         if result.get("error") or result.get("status") == "failed":
             err = result.get("error") or "Payment failed"
             telemetry.track("payment_error", message=err)
+            self.payment_status = ""
             self._popup("Payment Error", err)
+            return
+
+        # The webview is now open. We DON'T treat this as success - we wait
+        # for Whop to report a real completed payment. Poll their API in a
+        # background thread.
+        plan_id = result.get("plan_id")
+        checkout_id = result.get("checkout_id")
+        telemetry.track("payment_webview_opened",
+                        plan_id=plan_id, checkout_id=checkout_id)
+
+        if not plan_id:
+            self.payment_status = ""
+            self._popup("Cannot verify payment",
+                        "We couldn't identify the checkout. If you completed payment, contact support with your bank receipt.")
             return
 
         booking = {
             "date": self.selected_date, "time": self.selected_time,
             "address": self.address, "phone": self.phone,
-            "estimate": estimate, "checkout_id": result.get("checkout_id"),
-            "payment_status": "pending",
+            "estimate": estimate, "checkout_id": checkout_id,
+            "plan_id": plan_id, "payment_status": "awaiting_completion",
+            "started_at": int(time.time()),
         }
         app.bookings.append(booking)
-        telemetry.track("booking_confirmed", date=self.selected_date,
-                        cost_cents=cost_cents)
-        self._popup("Booked!", f"You're scheduled for {self.selected_date} at {self.selected_time}.")
+        self.payment_polling = True
+        self.payment_status = "Complete payment in the Whop window, then return here."
+        Thread(target=self._poll_payment, args=(booking,), daemon=True).start()
+
+    def _poll_payment(self, booking):
+        """Poll Whop API for up to 4 minutes looking for a completed payment."""
+        import whop_payment
+        deadline = time.time() + 240
+        attempts = 0
+        while time.time() < deadline and self.payment_polling:
+            attempts += 1
+            try:
+                paid = whop_payment.find_completed_payment(
+                    booking["plan_id"], booking["started_at"])
+            except Exception as e:
+                app_logger.log_exception("schedule", "poll raised", e)
+                paid = None
+            if paid:
+                booking["payment_status"] = "paid"
+                booking["payment_id"] = paid.get("id")
+                telemetry.track("payment_succeeded",
+                                payment_id=paid.get("id"),
+                                attempts=attempts)
+                Clock.schedule_once(lambda dt: self._on_paid(), 0)
+                return
+            telemetry.track("payment_poll_pending", attempts=attempts)
+            time.sleep(6 if attempts < 5 else 10)
+
+        # Timed out without finding a payment
+        booking["payment_status"] = "not_completed"
+        telemetry.track("payment_not_completed", attempts=attempts)
+        Clock.schedule_once(lambda dt: self._on_not_paid(), 0)
+
+    def _on_paid(self):
+        self.payment_polling = False
+        self.payment_status = ""
+        self._popup("Booked!",
+                    f"Payment received. You're scheduled for {self.selected_date} at {self.selected_time}.")
         self.manager.current = "home"
+
+    def _on_not_paid(self):
+        self.payment_polling = False
+        self.payment_status = ""
+        self._popup("Payment not received",
+                    "We didn't see a completed payment. If you tapped Pay in the Whop window and it shows success, give it 1-2 minutes and check My Bookings. Otherwise, please try again.")
 
     def _popup(self, title, msg):
         content = BoxLayout(orientation="vertical", padding=dp(15), spacing=dp(15))

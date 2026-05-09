@@ -83,12 +83,20 @@ def preauthorize(amount_cents, description, on_complete=None):
         return {"status": "failed", "error": error}
 
     purchase_url = checkout["purchase_url"]
-    log("applepay", "checkout created, opening", purchase_url=purchase_url)
+    plan_id = checkout.get("plan_id")
+    log("applepay", "checkout created, opening",
+        purchase_url=purchase_url, plan_id=plan_id)
 
     if not IS_IOS or not OBJC_AVAILABLE:
-        return _open_checkout_desktop(purchase_url, on_complete)
+        result = _open_checkout_desktop(purchase_url, on_complete)
+    else:
+        result = _open_checkout_ios(purchase_url, on_complete)
 
-    return _open_checkout_ios(purchase_url, on_complete)
+    # Surface plan_id so the caller can poll for actual payment completion.
+    result["plan_id"] = plan_id
+    result["checkout_id"] = checkout.get("checkout_id")
+    result["purchase_url"] = purchase_url
+    return result
 
 
 def can_make_payments():
