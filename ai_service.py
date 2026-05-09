@@ -28,30 +28,52 @@ class AIEstimator:
     """
 
     # System prompt for electrical estimations
-    ESTIMATE_SYSTEM_PROMPT = """You are an expert electrical contractor.
-You ALWAYS produce a usable price estimate, even when the description is short.
+    ESTIMATE_SYSTEM_PROMPT = """You are an expert residential electrical contractor.
+You produce a price RANGE for every job, plus interactive multiple-choice
+follow-up questions that let the customer narrow the range with a single tap.
+
+Always reply with ONE JSON object, no surrounding prose. Schema:
+
+{
+  "estimated_cost": <int midpoint of low/high>,
+  "cost_range_low": <int>,
+  "cost_range_high": <int>,
+  "confidence": "low" | "medium" | "high",
+  "explanation": "<2-3 short sentences explaining the estimate>",
+  "clarifying_questions": [
+    {
+      "question": "<short single-sentence question>",
+      "options": [
+        {"label": "<short tap-friendly answer, max 6 words>",
+         "context": "<one-line clarifying fact this answer adds>"}
+      ]
+    }
+  ]
+}
 
 Rules:
-1. NEVER refuse with "we need more details". If details are missing, make
-   reasonable assumptions for a typical US residence, state them, and still
-   give a price range.
-2. Always include a low and high number. The high may be much higher than
-   the low when uncertainty is high - that is fine.
-3. If clarification would meaningfully narrow the range, write a short
-   list of specific clarifying questions in the `clarifying_questions`
-   field, but always provide the range too.
-4. Use these typical US residential rates as a baseline:
+1. ALWAYS give a numeric range. Never refuse with "need more details".
+2. If the high/low ratio > 2.5x, output 1-3 clarifying_questions, each with
+   2-4 options. Each option must be a complete answer the user can tap
+   without typing. Include "I don't know" / "Not sure" as one option when
+   the answer is technical.
+3. If confidence is "high" (high/low ratio < 1.4x), output zero
+   clarifying_questions - the user can proceed to schedule.
+4. The questions should target the largest sources of cost variance:
+   existing wiring vs new, ceiling height / accessibility, fixture quality,
+   number of units, location indoor/outdoor, permit needs, age of building.
+5. Baseline US residential rates:
    - Labor $80-150/hour
-   - Standard outlet/switch install: $150-250
-   - Ceiling fan replacement (existing wiring): $180-450
-   - Ceiling fan install (new wiring): $400-900
+   - Outlet/switch: $150-250 each
+   - Ceiling fan replacement (existing wiring): $180-300
+   - Ceiling fan install (new wiring required): $400-900
    - Light fixture replacement: $150-350
-   - Recessed lighting per fixture: $150-300
+   - Recessed lighting per can: $150-300
    - GFCI outlet: $150-220
    - Panel upgrade 200A: $1,800-4,000
    - EV charger 240V: $800-2,000
    - Whole-house rewiring: $8,000-20,000
-5. Be brief in `explanation` - 3-5 short sentences."""
+6. `explanation`: 2-3 SHORT sentences, plain language, no bullet points."""
 
     CHAT_SYSTEM_PROMPT = """You are a helpful electrical contractor assistant for the ElectriciansNow app.
 Answer questions about electrical work, safety, costs, and help users understand their electrical needs.
@@ -60,8 +82,16 @@ Keep responses brief and mobile-friendly (under 200 words when possible)."""
 
     def __init__(self):
         """Initialize the AI estimator with available API keys"""
-        self.anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
-        self.openai_key = os.environ.get('OPENAI_API_KEY', '')
+        try:
+            import secrets_baked as _baked
+        except ImportError:
+            _baked = None
+        def _secret(name):
+            if _baked is not None and getattr(_baked, name, None):
+                return getattr(_baked, name)
+            return os.environ.get(name, '')
+        self.anthropic_key = _secret('ANTHROPIC_API_KEY')
+        self.openai_key = _secret('OPENAI_API_KEY')
         self.provider = self._determine_provider()
 
     def _determine_provider(self):
@@ -83,23 +113,7 @@ Keep responses brief and mobile-friendly (under 200 words when possible)."""
         Returns:
             dict with 'estimated_cost', 'explanation', 'time_estimate'
         """
-        prompt = f"""Estimate the following electrical work. If the
-description is incomplete, assume a typical US residential setup and
-state your assumptions in `assumptions`. Always return numeric estimates.
-
-Work: {job_description}
-
-Respond in this exact JSON shape (no other text):
-{{
-    "estimated_cost": <midpoint of range, number, must be > 0>,
-    "cost_range_low": <number, must be > 0>,
-    "cost_range_high": <number, must be > cost_range_low>,
-    "time_estimate": "<estimated time to complete>",
-    "explanation": "<3-5 sentence summary>",
-    "assumptions": ["<assumption 1>", "<assumption 2>"],
-    "clarifying_questions": ["<question 1>", "<question 2>"],
-    "considerations": ["<consideration 1>"]
-}}"""
+        prompt = f"Estimate this electrical work:\n\n{job_description}"
 
         try:
             if self.provider == 'anthropic':
@@ -146,22 +160,22 @@ Respond in this exact JSON shape (no other text):
         return self._parse_estimate_response(response_text)
 
     def _parse_estimate_response(self, response_text: str) -> dict:
-        """Parse the AI response into a structured estimate.
+        """Parse the AI response into the v2 structured estimate.
 
-        Always returns a dict with a positive estimated_cost. If the model
-        misbehaves and gives no numbers we fall back to a wide default range
-        rather than blocking the user.
+        Always returns a dict with a positive estimated_cost and a
+        clarifying_questions list (possibly empty). If the model misbehaves
+        and gives no numbers we fall back to a wide default range with
+        generic narrowing questions.
         """
         parsed = None
         try:
             json_match = re.search(r'\{[\s\S]*\}', response_text)
             if json_match:
                 parsed = json.loads(json_match.group())
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
             parsed = None
 
         if not parsed or not parsed.get('estimated_cost'):
-            # Mine the prose for any dollar amounts so we still return a number
             nums = [int(n.replace(',', '')) for n in re.findall(r'\$([0-9,]+)', response_text)]
             if nums:
                 low = min(nums)
@@ -170,24 +184,56 @@ Respond in this exact JSON shape (no other text):
                 parsed.setdefault('cost_range_low', low)
                 parsed.setdefault('cost_range_high', high)
                 parsed['estimated_cost'] = (low + high) // 2
-                parsed.setdefault('explanation', response_text.strip())
+                parsed.setdefault('explanation', response_text.strip()[:300])
             else:
-                # Last resort: a wide useful range so user can still proceed
-                parsed = {
-                    'estimated_cost': 300,
-                    'cost_range_low': 150,
-                    'cost_range_high': 800,
-                    'time_estimate': '1-4 hours typical',
-                    'explanation': (response_text.strip() or
-                                    'Estimate generated from typical residential rates.'),
-                    'clarifying_questions': [
-                        'How many fixtures or outlets are involved?',
-                        'Is existing wiring already in place?',
-                        'Any special access requirements (high ceiling, attic, crawlspace)?',
-                    ],
-                    'considerations': ['Schedule a visit for a precise quote'],
-                }
+                parsed = self._generic_estimate(response_text.strip())
+
+        # Normalize question shape - ensure each has options[]
+        questions = parsed.get('clarifying_questions') or []
+        normalized = []
+        for q in questions:
+            if isinstance(q, str):
+                # Old-format string question - skip, schema requires options
+                continue
+            if not isinstance(q, dict):
+                continue
+            opts = q.get('options') or []
+            valid = []
+            for o in opts:
+                if isinstance(o, dict) and o.get('label'):
+                    valid.append({
+                        'label': str(o['label'])[:60],
+                        'context': str(o.get('context') or o['label'])[:200],
+                    })
+            if q.get('question') and valid:
+                normalized.append({
+                    'question': str(q['question'])[:200],
+                    'options': valid[:4],
+                })
+        parsed['clarifying_questions'] = normalized[:3]
+        parsed.setdefault('confidence', 'medium')
         return parsed
+
+    def _generic_estimate(self, raw_text=''):
+        return {
+            'estimated_cost': 350,
+            'cost_range_low': 150,
+            'cost_range_high': 800,
+            'confidence': 'low',
+            'explanation': (raw_text[:200] if raw_text else
+                            "Typical residential electrical job. Tap an answer below to narrow this down."),
+            'clarifying_questions': [
+                {
+                    'question': 'What kind of work is this?',
+                    'options': [
+                        {'label': 'Light fixture or fan', 'context': 'fixture install or replacement'},
+                        {'label': 'Outlet or switch', 'context': 'outlet/switch work'},
+                        {'label': 'Panel or breaker', 'context': 'panel or breaker work'},
+                        {'label': 'Something else', 'context': 'other electrical work'},
+                    ],
+                },
+            ],
+        }
 
     def _get_fallback_estimate(self, job_description: str) -> dict:
         """
@@ -219,43 +265,26 @@ Respond in this exact JSON shape (no other text):
                 break
 
         if matched_estimate:
+            cost = matched_estimate['cost']
             return {
-                'estimated_cost': matched_estimate['cost'],
-                'cost_range_low': int(matched_estimate['cost'] * 0.8),
-                'cost_range_high': int(matched_estimate['cost'] * 1.5),
-                'time_estimate': matched_estimate['time'],
-                'explanation': f"{matched_estimate['desc']}\n\n"
-                              f"Estimated cost: ${matched_estimate['cost']}\n"
-                              f"Range: ${int(matched_estimate['cost'] * 0.8)} - ${int(matched_estimate['cost'] * 1.5)}\n\n"
-                              "Note: This is a basic estimate. Actual costs may vary based on:\n"
-                              "- Complexity of the job\n"
-                              "- Accessibility of the work area\n"
-                              "- Local labor rates\n"
-                              "- Required permits\n\n"
-                              "Schedule an appointment for an accurate quote.",
-                'materials_needed': ['Standard electrical supplies'],
-                'considerations': ['Professional assessment recommended']
+                'estimated_cost': cost,
+                'cost_range_low': int(cost * 0.8),
+                'cost_range_high': int(cost * 1.5),
+                'confidence': 'medium',
+                'explanation': f"{matched_estimate['desc']}. Typical time: {matched_estimate['time']}. Tap an answer below to narrow this down.",
+                'clarifying_questions': [
+                    {
+                        'question': 'How many of these are needed?',
+                        'options': [
+                            {'label': 'Just one', 'context': 'single unit'},
+                            {'label': '2-3', 'context': '2-3 units'},
+                            {'label': '4 or more', 'context': '4+ units'},
+                        ],
+                    },
+                ],
             }
         else:
-            return {
-                'estimated_cost': 300,
-                'cost_range_low': 150,
-                'cost_range_high': 800,
-                'time_estimate': '1-4 hours typical',
-                'explanation': (
-                    "Based on typical residential electrical work, this job "
-                    "is likely $150–$800. The exact price depends on the "
-                    "specifics below. Tap Schedule to lock in a visit; you "
-                    "won't be charged until the work is confirmed on-site."
-                ),
-                'clarifying_questions': [
-                    'How many fixtures, outlets, or switches are involved?',
-                    'Is existing wiring already in place, or does new wiring need to be run?',
-                    'Where in the home is the work (kitchen, bath, attic, exterior, panel)?',
-                ],
-                'materials_needed': ['Standard electrical supplies'],
-                'considerations': ['On-site assessment will give a firm quote']
-            }
+            return self._generic_estimate()
 
     def chat(self, message: str) -> str:
         """

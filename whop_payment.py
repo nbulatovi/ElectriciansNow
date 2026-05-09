@@ -12,9 +12,21 @@ import uuid
 
 from app_logger import log, log_exception
 
-WHOP_API_KEY = os.environ.get('WHOP_API_KEY', '')
-WHOP_COMPANY_ID = os.environ.get('WHOP_COMPANY_ID', 'biz_zJoSxeeg1Jai0e')
-WHOP_ENVIRONMENT = os.environ.get('WHOP_ENVIRONMENT', 'production')
+# Secrets are baked into the IPA at build time by the CI workflow.
+# On desktop dev, fall back to environment variables.
+try:
+    import secrets_baked as _baked
+except ImportError:
+    _baked = None
+
+def _secret(name, default=''):
+    if _baked is not None and getattr(_baked, name, None):
+        return getattr(_baked, name)
+    return os.environ.get(name, default)
+
+WHOP_API_KEY = _secret('WHOP_API_KEY')
+WHOP_COMPANY_ID = _secret('WHOP_COMPANY_ID', 'biz_zJoSxeeg1Jai0e')
+WHOP_ENVIRONMENT = _secret('WHOP_ENVIRONMENT', 'production')
 
 _API_URLS = {
     "sandbox": "https://sandbox-api.whop.com/api/v1",

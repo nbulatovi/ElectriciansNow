@@ -68,6 +68,49 @@ jobs:
           du -sh src/
 
       ##########################################################################
+      - name: Bake Secrets into App Source
+        env:
+          WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
+          WHOP_COMPANY_ID: ${{ secrets.WHOP_COMPANY_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TELEMETRY_URL: ${{ secrets.TELEMETRY_URL }}
+          TELEMETRY_HMAC_KEY: ${{ secrets.TELEMETRY_HMAC_KEY }}
+        run: |
+          # Generate src/secrets_baked.py from GitHub secrets so the IPA
+          # has the keys at runtime. Without this, os.environ.get() returns
+          # empty on iOS and the app shows "WHOP_API_KEY not set" at payment.
+          # File is gitignored locally; only exists in the build workspace.
+          python3 - <<'PY'
+          import os
+          keys = ["WHOP_API_KEY", "WHOP_COMPANY_ID", "ANTHROPIC_API_KEY",
+                  "OPENAI_API_KEY", "TELEMETRY_URL", "TELEMETRY_HMAC_KEY"]
+          lines = ["# Generated at build time. Do not edit. Do not commit.\n"]
+          for k in keys:
+              v = os.environ.get(k, "")
+              # Use repr so embedded quotes/specials are safe Python literals
+              lines.append(f"{k} = {v!r}\n")
+          with open("src/secrets_baked.py", "w") as f:
+              f.writelines(lines)
+          print("Wrote src/secrets_baked.py with keys:")
+          for k in keys:
+              v = os.environ.get(k, "")
+              print(f"  {k}: {'(set)' if v else '(empty)'}")
+          PY
+
+      ##########################################################################
+      - name: Bundle Nintendo Font (Nunito Black)
+        run: |
+          # Nunito Black is open source (SIL OFL). Bundle it for the
+          # display headers on tiles, headers, and the price ticker.
+          mkdir -p src/assets/fonts
+          curl -fsSL -o src/assets/fonts/Nunito-Black.ttf \
+            "https://github.com/google/fonts/raw/main/ofl/nunito/Nunito%5Bwght%5D.ttf" \
+            || curl -fsSL -o src/assets/fonts/Nunito-Black.ttf \
+            "https://fonts.gstatic.com/s/nunito/v25/XRXV3I6Li01BKofINeaB.ttf"
+          ls -la src/assets/fonts/
+
+      ##########################################################################
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:

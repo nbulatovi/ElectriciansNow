@@ -182,6 +182,10 @@ api_key.p8
 # Encrypted tokens (generated at build time)
 Resources/initial_tokens.enc
 
+# Baked secrets (generated at build time)
+secrets_baked.py
+assets/fonts/Nunito-Black.ttf
+
 # Local config
 .env.local
 config.local.py

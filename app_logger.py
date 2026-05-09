@@ -50,7 +50,7 @@ def _rotate_if_needed():
 
 
 def log(category, message, **data):
-    """Append a structured event to disk and Kivy logger."""
+    """Append a structured event to disk, Kivy logger, and telemetry."""
     event = {
         "ts": datetime.utcnow().isoformat(timespec="milliseconds") + "Z",
         "category": category,
@@ -76,6 +76,14 @@ def log(category, message, **data):
         _rotate_if_needed()
         with open(LOG_PATH, "a") as f:
             f.write(json.dumps(event, default=str) + "\n")
+    except Exception:
+        pass
+
+    # Fan out to telemetry. Imported lazily to avoid circular import at module load.
+    try:
+        import telemetry
+        telemetry.track(f"{category}_{message}".replace(" ", "_").lower()[:64],
+                        category=category, message=message, **(data or {}))
     except Exception:
         pass
 

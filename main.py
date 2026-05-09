@@ -7,48 +7,149 @@ from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.popup import Popup
 from kivy.uix.spinner import Spinner
+from kivy.uix.dropdown import DropDown
 from kivy.core.window import Window
-from kivy.properties import StringProperty, NumericProperty, ListProperty
+from kivy.core.text import LabelBase
+from kivy.properties import (StringProperty, NumericProperty, ListProperty,
+                             BooleanProperty)
 from kivy.clock import Clock
 from kivy.metrics import dp
+from kivy.animation import Animation
 from threading import Thread
+import os
+
+# Register the Nintendo display font if bundled
+try:
+    _font_path = os.path.join(os.path.dirname(__file__), "assets", "fonts", "Nunito-Black.ttf")
+    if os.path.exists(_font_path):
+        LabelBase.register(name="Nintendo", fn_regular=_font_path)
+except Exception:
+    pass
 
 from ai_service import AIEstimator
 import applepay
 import user_prefs
 import app_logger
 import location_service
+import telemetry
+import address_autocomplete
+from nintendo_widgets import (TileButton, HeroCard, PillButton, PriceTicker,
+                              StyledTextInput, SWITCH_RED, SWITCH_BLUE,
+                              MARIO_YELLOW, LUIGI_GREEN, STAR_PURPLE, CREAM,
+                              NAVY)
 
-# Window size only used for desktop; ignored on iOS
+# Cream background
+Window.clearcolor = CREAM
 Window.size = (400, 800)
 
 
 class HomeScreen(Screen):
-    """Main screen with address bar + service options."""
     address = StringProperty("")
     locating = StringProperty("")
+    suggestions = ListProperty([])
+
+    _last_typed = ""
+    _autocomplete_event = None
+    _dropdown = None
 
     def on_pre_enter(self):
         prefs = user_prefs.load()
         if prefs.get("address") and not self.address:
             self.address = prefs["address"]
+        telemetry.track("screen_changed", to="home")
 
-    def save_address(self, text):
+    def address_text_changed(self, text):
+        # Mirror to property
         self.address = text
-        user_prefs.update(address=text)
-        # Mirror to schedule screen so user doesn't re-type
+        # Debounce autocomplete
+        if self._autocomplete_event:
+            self._autocomplete_event.cancel()
+        self._autocomplete_event = Clock.schedule_once(
+            lambda dt: self._fetch_suggestions(text), 0.35)
+
+    def _fetch_suggestions(self, text):
+        text = (text or "").strip()
+        if len(text) < 3:
+            self._close_dropdown()
+            return
+        if text == self._last_typed:
+            return
+        self._last_typed = text
+        telemetry.track("address_typed", prefix_len=len(text))
+        Thread(target=self._do_suggest, args=(text,), daemon=True).start()
+
+    def _do_suggest(self, text):
+        results = address_autocomplete.suggest(text, limit=5)
+        Clock.schedule_once(lambda dt: self._show_suggestions(results), 0)
+
+    def _show_suggestions(self, results):
+        self.suggestions = results
+        if not results:
+            self._close_dropdown()
+            return
+        # Build / refresh dropdown
+        if self._dropdown is None:
+            self._dropdown = DropDown(auto_width=False, width=Window.width - dp(36))
+        self._dropdown.clear_widgets()
+        for r in results:
+            btn = PillButton(text=r["label"], bg_color=SWITCH_BLUE,
+                             size_hint_y=None, height=dp(56))
+            btn.bind(on_release=lambda b, label=r["label"]: self.choose_suggestion(label))
+            self._dropdown.add_widget(btn)
+        try:
+            anchor = self.ids.address_card
+            self._dropdown.open(anchor)
+        except Exception as e:
+            app_logger.log_exception("home", "dropdown open failed", e)
+
+    def _close_dropdown(self):
+        if self._dropdown:
+            try:
+                self._dropdown.dismiss()
+            except Exception:
+                pass
+
+    def choose_suggestion(self, label):
+        telemetry.track("address_suggestion_picked", provider="photon")
+        self.address = label
+        user_prefs.update(address=label)
+        self._close_dropdown()
+        self._mirror_to_schedule()
+
+    def _mirror_to_schedule(self):
         sched = self.manager.get_screen("schedule") if self.manager else None
         if sched:
-            sched.address = text
+            sched.address = self.address
+
+    def save_address(self, text):
+        if text and text != self.address:
+            self.address = text
+        user_prefs.update(address=self.address)
+        self._mirror_to_schedule()
 
     def use_current_location(self):
-        """Resolve current location to an address (iOS Core Location)."""
+        telemetry.track("location_requested")
         self.locating = "Locating..."
         Thread(target=self._do_locate, daemon=True).start()
 
+    def _on_location_status(self, state, ms, **extra):
+        ui_text = {
+            "waiting_permission": "Waiting for permission...",
+            "locating": "Getting your location...",
+            "geocoding": "Looking up address...",
+            "denied": "Location denied. Type your address below.",
+            "restricted": "Location restricted. Type your address below.",
+            "timeout": "Location timed out. Type your address below.",
+            "unsupported": "Location only works on iPhone.",
+            "error": "Could not determine location.",
+            "done": "",
+        }.get(state, state)
+        Clock.schedule_once(lambda dt: setattr(self, "locating", ui_text), 0)
+        telemetry.track("location_status", state=state, ms=ms, **extra)
+
     def _do_locate(self):
         try:
-            addr = location_service.get_current_address()
+            addr = location_service.get_current_address(status_cb=self._on_location_status)
         except Exception as e:
             app_logger.log_exception("home", "location lookup failed", e)
             addr = None
@@ -56,72 +157,123 @@ class HomeScreen(Screen):
 
     def _apply_address(self, addr):
         if addr:
-            self.save_address(addr)
+            self.address = addr
+            user_prefs.update(address=addr)
             self.locating = ""
+            self._mirror_to_schedule()
+            telemetry.track("location_result", status="ok", address=addr)
         else:
-            self.locating = "Could not determine location. Please type address."
+            telemetry.track("location_result", status="failed")
+
+    def go_to(self, screen_name):
+        telemetry.track("tile_tapped", id=screen_name)
+        self.manager.current = screen_name
 
 
 class EstimateScreen(Screen):
     job_description = StringProperty("")
-    estimate_result = StringProperty("")
-    estimated_cost = NumericProperty(0)
-    cost_range = StringProperty("")
+    explanation = StringProperty("")
+    confidence = StringProperty("")
+    cost_low = NumericProperty(0)
+    cost_high = NumericProperty(0)
+    refined_context = StringProperty("")
+    refinement_round = NumericProperty(0)
+    questions = ListProperty([])
+
+    def on_pre_enter(self):
+        telemetry.track("screen_changed", to="estimate")
 
     def get_estimate(self):
         if not self.job_description.strip():
-            self.estimate_result = "Please describe the electrical work needed."
+            self.explanation = "Please describe the electrical work needed."
             return
-        self.estimate_result = "Getting estimate..."
-        Clock.schedule_once(lambda dt: self._fetch_estimate(), 0.1)
+        self.explanation = "Getting estimate..."
+        self.refined_context = ""
+        self.refinement_round = 0
+        Clock.schedule_once(lambda dt: self._fetch_estimate(), 0.05)
 
     def _fetch_estimate(self):
+        full_desc = self.job_description
+        if self.refined_context:
+            full_desc += "\n\nAdditional context:\n" + self.refined_context
         try:
+            telemetry.track("estimate_requested",
+                            description_len=len(full_desc),
+                            round=self.refinement_round)
             estimator = App.get_running_app().ai_estimator
-            result = estimator.get_estimate(self.job_description)
-            app_logger.log("estimate", "got result",
-                           cost=result.get("estimated_cost"),
-                           low=result.get("cost_range_low"),
-                           high=result.get("cost_range_high"))
-
-            cost = result.get("estimated_cost", 0) or 0
-            low = result.get("cost_range_low") or int(cost * 0.7) or 150
-            high = result.get("cost_range_high") or int(cost * 1.5) or 800
-            if cost <= 0:
-                cost = (low + high) // 2
-
-            parts = []
-            parts.append(f"Estimate: ${low:,} - ${high:,}")
-            if result.get("time_estimate"):
-                parts.append(f"Time: {result['time_estimate']}")
-            if result.get("explanation"):
-                parts.append("")
-                parts.append(result["explanation"])
-            assumptions = result.get("assumptions") or []
-            if assumptions:
-                parts.append("")
-                parts.append("Assumptions:")
-                for a in assumptions:
-                    parts.append(f"  - {a}")
-            questions = result.get("clarifying_questions") or []
-            if questions:
-                parts.append("")
-                parts.append("To narrow this down, please answer:")
-                for q in questions:
-                    parts.append(f"  - {q}")
-                parts.append("")
-                parts.append("Add details above and tap Get Estimate again, or proceed to schedule with the range above.")
-
-            self.estimate_result = "\n".join(parts)
-            self.estimated_cost = cost
-            self.cost_range = f"${low:,} - ${high:,}"
-            App.get_running_app().current_estimate = result
+            result = estimator.get_estimate(full_desc)
+            self._apply_result(result)
         except Exception as e:
             app_logger.log_exception("estimate", "fetch failed", e)
-            self.estimate_result = f"Error getting estimate: {e}"
+            self.explanation = f"Error: {e}"
+
+    def _apply_result(self, result):
+        cost = result.get("estimated_cost") or 0
+        low = result.get("cost_range_low") or int(cost * 0.7) or 150
+        high = result.get("cost_range_high") or int(cost * 1.5) or 800
+        if cost <= 0:
+            cost = (low + high) // 2
+
+        self.cost_low = low
+        self.cost_high = high
+        self.confidence = (result.get("confidence") or "medium").upper()
+        self.explanation = result.get("explanation") or ""
+        self.questions = result.get("clarifying_questions") or []
+
+        App.get_running_app().current_estimate = {
+            "estimated_cost": cost,
+            "cost_range_low": low,
+            "cost_range_high": high,
+            "confidence": self.confidence,
+            "description": self.job_description + (
+                "\n" + self.refined_context if self.refined_context else ""),
+        }
+        telemetry.track("estimate_returned", cost=cost, low=low, high=high,
+                        confidence=self.confidence,
+                        question_count=len(self.questions),
+                        provider=App.get_running_app().ai_estimator.provider)
+        self._render_questions()
+
+    def _render_questions(self):
+        container = self.ids.get("questions_box") if hasattr(self, "ids") else None
+        if container is None:
+            return
+        container.clear_widgets()
+        if not self.questions:
+            return
+        from kivy.uix.label import Label as KLabel
+        for q in self.questions[:3]:
+            qlabel = KLabel(
+                text=q.get("question", ""), color=NAVY, font_size=dp(18),
+                bold=True, size_hint_y=None, halign="left", valign="middle",
+                text_size=(Window.width - dp(40), None))
+            qlabel.bind(texture_size=lambda inst, ts: setattr(inst, "height", ts[1] + dp(6)))
+            container.add_widget(qlabel)
+
+            for opt in q.get("options", [])[:4]:
+                colors = [SWITCH_BLUE, MARIO_YELLOW, LUIGI_GREEN, STAR_PURPLE]
+                color = colors[len(container.children) % len(colors)]
+                btn = PillButton(text=opt["label"], bg_color=color,
+                                 size_hint_y=None, height=dp(54), font_size=dp(17))
+                btn.bind(on_release=lambda b, ctx=opt["context"], qst=q["question"], lbl=opt["label"]:
+                         self.refine(qst, lbl, ctx))
+                container.add_widget(btn)
+
+    def refine(self, question, answer_label, context):
+        if self.refinement_round >= 3:
+            self.explanation = "Range tightened. Tap Schedule to proceed."
+            return
+        self.refinement_round += 1
+        self.refined_context += f"\n- {question} -> {context}"
+        telemetry.track("estimate_refined",
+                        round=self.refinement_round,
+                        question=question[:120], answer=answer_label[:60])
+        self.explanation = "Updating estimate..."
+        Clock.schedule_once(lambda dt: self._fetch_estimate(), 0.05)
 
     def proceed_to_schedule(self):
-        if self.estimated_cost > 0:
+        if self.cost_low > 0:
+            telemetry.track("schedule_from_estimate")
             self.manager.current = "schedule"
 
 
@@ -130,7 +282,6 @@ class ScheduleScreen(Screen):
     selected_time = StringProperty("Select Time")
     address = StringProperty("")
     phone = StringProperty("")
-
     available_dates = ListProperty([])
     available_times = ListProperty([
         "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
@@ -149,81 +300,77 @@ class ScheduleScreen(Screen):
             self.address = prefs["address"]
         if not self.phone and prefs.get("phone"):
             self.phone = prefs["phone"]
+        telemetry.track("screen_changed", to="schedule")
 
     def confirm_booking(self):
         if not self.address.strip():
-            self._show_popup("Error", "Please enter your address")
+            self._popup("Hold up", "Please enter your address.")
             return
         if not self.phone.strip():
-            self._show_popup("Error", "Please enter your phone number")
+            self._popup("Hold up", "Please enter your phone number.")
             return
         if self.selected_date == "Select Date":
-            self._show_popup("Error", "Please select a date")
+            self._popup("Hold up", "Please pick a date.")
             return
         if self.selected_time == "Select Time":
-            self._show_popup("Error", "Please select a time")
+            self._popup("Hold up", "Please pick a time.")
             return
 
         user_prefs.update(address=self.address, phone=self.phone)
-
         app = App.get_running_app()
         estimate = getattr(app, "current_estimate", {})
         cost_cents = int((estimate.get("estimated_cost") or 0) * 100)
-
         if cost_cents <= 0:
-            self._show_popup("Error", "No valid estimate found")
+            self._popup("No estimate", "Get an estimate first, then come back.")
             return
 
         description = f"Electrician Service - {self.selected_date}"
-        app_logger.log("schedule", "confirming booking",
-                       date=self.selected_date, time=self.selected_time,
-                       cost_cents=cost_cents)
+        telemetry.track("payment_started", cost_cents=cost_cents,
+                        date=self.selected_date, time=self.selected_time)
         result = applepay.preauthorize(cost_cents, description)
 
         if result.get("error") or result.get("status") == "failed":
             err = result.get("error") or "Payment failed"
-            self._show_popup("Payment Error",
-                             f"{err}\n\nTap 'Diagnostic Logs' on the home "
-                             f"screen for details we can share with support.")
-        else:
-            booking = {
-                "date": self.selected_date,
-                "time": self.selected_time,
-                "address": self.address,
-                "phone": self.phone,
-                "estimate": estimate,
-                "checkout_id": result.get("checkout_id"),
-                "payment_status": "pending",
-            }
-            app.bookings.append(booking)
-            self._show_popup(
-                "Booking Confirmed!",
-                f"Your electrician is scheduled for:\n{self.selected_date} at {self.selected_time}\n\n"
-                f"Address: {self.address}\n"
-                f"Estimated Cost: ${estimate.get('estimated_cost', 0):.2f}\n\n"
-                "You will receive a confirmation call shortly.",
-            )
-            self.manager.current = "home"
+            telemetry.track("payment_error", message=err)
+            self._popup("Payment Error", err)
+            return
 
-    def _show_popup(self, title, message):
+        booking = {
+            "date": self.selected_date, "time": self.selected_time,
+            "address": self.address, "phone": self.phone,
+            "estimate": estimate, "checkout_id": result.get("checkout_id"),
+            "payment_status": "pending",
+        }
+        app.bookings.append(booking)
+        telemetry.track("booking_confirmed", date=self.selected_date,
+                        cost_cents=cost_cents)
+        self._popup("Booked!", f"You're scheduled for {self.selected_date} at {self.selected_time}.")
+        self.manager.current = "home"
+
+    def _popup(self, title, msg):
         content = BoxLayout(orientation="vertical", padding=dp(15), spacing=dp(15))
-        content.add_widget(Label(text=message, font_size=dp(18),
+        content.add_widget(Label(text=msg, font_size=dp(19), color=NAVY,
                                  text_size=(dp(280), None), halign="center"))
-        btn = Button(text="OK", size_hint_y=None, height=dp(55), font_size=dp(20))
+        btn = PillButton(text="OK", bg_color=SWITCH_BLUE,
+                         size_hint_y=None, height=dp(54), font_size=dp(20))
         content.add_widget(btn)
         popup = Popup(title=title, content=content, size_hint=(0.9, 0.5),
                       title_size=dp(20))
-        btn.bind(on_press=popup.dismiss)
+        btn.bind(on_release=popup.dismiss)
         popup.open()
 
 
 class BookingsScreen(Screen):
-    pass
+    def on_pre_enter(self):
+        telemetry.track("screen_changed", to="bookings")
 
 
 class ChatScreen(Screen):
     chat_history = StringProperty("")
     user_message = StringProperty("")
+
+    def on_pre_enter(self):
+        telemetry.track("screen_changed", to="chat")
 
     def send_message(self):
         if not self.user_message.strip():
@@ -231,9 +378,9 @@ class ChatScreen(Screen):
         self.chat_history += f"\n[You]: {self.user_message}\n"
         question = self.user_message
         self.user_message = ""
-        Clock.schedule_once(lambda dt: self._get_ai_response(question), 0.1)
+        Clock.schedule_once(lambda dt: self._get_response(question), 0.05)
 
-    def _get_ai_response(self, question):
+    def _get_response(self, question):
         try:
             estimator = App.get_running_app().ai_estimator
             response = estimator.chat(question)
@@ -265,9 +412,13 @@ class ElectriciansNowApp(App):
         self.bookings = []
 
     def build(self):
+        # Start telemetry pipeline early
+        telemetry.start()
+        telemetry.install_excepthook()
+        telemetry.track("app_started", app_version=telemetry.APP_VERSION)
+
         self.ai_estimator = AIEstimator()
-        app_logger.log("app", "started",
-                       provider=self.ai_estimator.provider)
+        app_logger.log("app", "started", provider=self.ai_estimator.provider)
 
         sm = ScreenManager()
         sm.add_widget(HomeScreen(name="home"))
@@ -280,7 +431,10 @@ class ElectriciansNowApp(App):
 
     def get_estimate_summary(self):
         if self.current_estimate:
-            return f"Estimated Cost: ${self.current_estimate.get('estimated_cost', 0):.2f}"
+            low = self.current_estimate.get("cost_range_low", 0)
+            high = self.current_estimate.get("cost_range_high", 0)
+            if low and high:
+                return f"Estimate: ${low:,} - ${high:,}"
         return ""
 
 
