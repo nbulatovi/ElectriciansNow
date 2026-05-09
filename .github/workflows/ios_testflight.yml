@@ -253,6 +253,22 @@ jobs:
               /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 'Electricians NOW'" \
               ElectriciansNow-Info.plist
 
+          # Usage descriptions for Privacy-sensitive APIs the Kivy framework
+          # links but our Python app never invokes. Apple's binary scanner
+          # silently rejects builds that reference AVCaptureDevice /
+          # AVAudioSession (record) / UIImagePickerController / CMMotionManager
+          # without a matching NSUsageDescription. We declare the minimum set
+          # with honest descriptions explaining the framework dependency.
+          for kv in \
+              "NSCameraUsageDescription:This app does not access the camera. The framework links the camera API but the feature is unused." \
+              "NSMicrophoneUsageDescription:This app does not record audio. The framework links the audio session API but the feature is unused." \
+              "NSPhotoLibraryUsageDescription:This app does not access photos. The framework links the image picker API but the feature is unused." \
+              "NSMotionUsageDescription:This app does not use motion data. The framework links the motion API but the feature is unused."; do
+            k="${kv%%:*}"; v="${kv#*:}"
+            /usr/libexec/PlistBuddy -c "Set :$k '$v'" ElectriciansNow-Info.plist 2>/dev/null || \
+                /usr/libexec/PlistBuddy -c "Add :$k string '$v'" ElectriciansNow-Info.plist
+          done
+
           echo "--- Final Info.plist key fields ---"
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" ElectriciansNow-Info.plist
           /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" ElectriciansNow-Info.plist
