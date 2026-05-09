@@ -264,6 +264,79 @@ jobs:
           ls -la
 
       ##########################################################################
+      - name: Add Privacy Manifest (silences Apple privacy review)
+        run: |
+          # Apple's processor scans the binary and flags linked symbols
+          # like AVCaptureDevice, AVAudioSession, UIImagePickerController,
+          # CMMotionManager (all pulled in by Kivy/SDL2 even though our
+          # app never calls them). Either we ship NSUsageDescription
+          # strings for each (and risk reviewer asking why we 'need'
+          # them) OR ship a Privacy Manifest declaring no tracking, no
+          # collection, and only the minimal required-reason APIs that
+          # Python's stdlib / Kivy actually invoke.
+          #
+          # PrivacyInfo.xcprivacy schema:
+          # https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
+          cat > electriciansnow-ios/electriciansnow/PrivacyInfo.xcprivacy <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>NSPrivacyTracking</key>
+            <false/>
+            <key>NSPrivacyTrackingDomains</key>
+            <array/>
+            <key>NSPrivacyCollectedDataTypes</key>
+            <array/>
+            <key>NSPrivacyAccessedAPITypes</key>
+            <array>
+              <dict>
+                <key>NSPrivacyAccessedAPIType</key>
+                <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+                <key>NSPrivacyAccessedAPITypeReasons</key>
+                <array>
+                  <string>C617.1</string>
+                </array>
+              </dict>
+              <dict>
+                <key>NSPrivacyAccessedAPIType</key>
+                <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+                <key>NSPrivacyAccessedAPITypeReasons</key>
+                <array>
+                  <string>35F9.1</string>
+                </array>
+              </dict>
+              <dict>
+                <key>NSPrivacyAccessedAPIType</key>
+                <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+                <key>NSPrivacyAccessedAPITypeReasons</key>
+                <array>
+                  <string>E174.1</string>
+                </array>
+              </dict>
+              <dict>
+                <key>NSPrivacyAccessedAPIType</key>
+                <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+                <key>NSPrivacyAccessedAPITypeReasons</key>
+                <array>
+                  <string>CA92.1</string>
+                </array>
+              </dict>
+            </array>
+          </dict>
+          </plist>
+          EOF
+
+          # Inject into Xcode project so the build copies it into the bundle.
+          # We do this by adding the file at the root of the .app via a
+          # build phase script. Easier: drop it into the source folder
+          # kivy-ios already copies to YourApp/, then also place it at the
+          # root of the .app bundle in a post-build step.
+          cp electriciansnow-ios/electriciansnow/PrivacyInfo.xcprivacy \
+              electriciansnow-ios/PrivacyInfo.xcprivacy
+          ls -la electriciansnow-ios/electriciansnow/PrivacyInfo.xcprivacy
+
+      ##########################################################################
       - name: Update Kivy Project
         run: |
           toolchain update electriciansnow-ios
@@ -391,6 +464,17 @@ jobs:
 
           # Verify the archive
           ls -la /tmp/ElectriciansNow.xcarchive/Products/Applications/
+
+      ##########################################################################
+      - name: Inject Privacy Manifest at App Bundle Root
+        run: |
+          # Privacy manifest must live at the root of the .app bundle for
+          # Apple's privacy scanner to find it. kivy-ios doesn't have a
+          # mechanism to add bundle-root resources, so we copy it in by
+          # hand right before final signing.
+          APP=/tmp/ElectriciansNow.xcarchive/Products/Applications/electriciansnow.app
+          cp electriciansnow-ios/electriciansnow/PrivacyInfo.xcprivacy "$APP/PrivacyInfo.xcprivacy"
+          ls -la "$APP/PrivacyInfo.xcprivacy"
 
       ##########################################################################
       - name: Re-sign All Nested Binaries (kivy-ios produces unsigned .so files)
