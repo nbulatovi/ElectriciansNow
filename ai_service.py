@@ -28,23 +28,30 @@ class AIEstimator:
     """
 
     # System prompt for electrical estimations
-    ESTIMATE_SYSTEM_PROMPT = """You are an expert electrical contractor assistant. Your job is to provide accurate cost estimates for electrical work based on the description provided.
+    ESTIMATE_SYSTEM_PROMPT = """You are an expert electrical contractor.
+You ALWAYS produce a usable price estimate, even when the description is short.
 
-When giving estimates, consider:
-- Labor costs (typically $50-150/hour depending on complexity)
-- Material costs (wiring, outlets, panels, fixtures, etc.)
-- Permit requirements for major work
-- Regional pricing variations
-- Complexity and time required
-
-Always provide:
-1. A cost range (low to high estimate)
-2. Breakdown of major cost components
-3. Factors that could affect the final price
-4. Time estimate for completion
-5. Any safety considerations or code requirements
-
-Be helpful but always recommend getting an in-person assessment for accurate quotes."""
+Rules:
+1. NEVER refuse with "we need more details". If details are missing, make
+   reasonable assumptions for a typical US residence, state them, and still
+   give a price range.
+2. Always include a low and high number. The high may be much higher than
+   the low when uncertainty is high - that is fine.
+3. If clarification would meaningfully narrow the range, write a short
+   list of specific clarifying questions in the `clarifying_questions`
+   field, but always provide the range too.
+4. Use these typical US residential rates as a baseline:
+   - Labor $80-150/hour
+   - Standard outlet/switch install: $150-250
+   - Ceiling fan replacement (existing wiring): $180-450
+   - Ceiling fan install (new wiring): $400-900
+   - Light fixture replacement: $150-350
+   - Recessed lighting per fixture: $150-300
+   - GFCI outlet: $150-220
+   - Panel upgrade 200A: $1,800-4,000
+   - EV charger 240V: $800-2,000
+   - Whole-house rewiring: $8,000-20,000
+5. Be brief in `explanation` - 3-5 short sentences."""
 
     CHAT_SYSTEM_PROMPT = """You are a helpful electrical contractor assistant for the ElectriciansNow app.
 Answer questions about electrical work, safety, costs, and help users understand their electrical needs.
@@ -76,19 +83,22 @@ Keep responses brief and mobile-friendly (under 200 words when possible)."""
         Returns:
             dict with 'estimated_cost', 'explanation', 'time_estimate'
         """
-        prompt = f"""Please provide an estimate for the following electrical work:
+        prompt = f"""Estimate the following electrical work. If the
+description is incomplete, assume a typical US residential setup and
+state your assumptions in `assumptions`. Always return numeric estimates.
 
-{job_description}
+Work: {job_description}
 
-Respond in the following JSON format:
+Respond in this exact JSON shape (no other text):
 {{
-    "estimated_cost": <average estimated cost as a number>,
-    "cost_range_low": <low estimate as a number>,
-    "cost_range_high": <high estimate as a number>,
+    "estimated_cost": <midpoint of range, number, must be > 0>,
+    "cost_range_low": <number, must be > 0>,
+    "cost_range_high": <number, must be > cost_range_low>,
     "time_estimate": "<estimated time to complete>",
-    "explanation": "<detailed explanation of the estimate>",
-    "materials_needed": ["<list of main materials>"],
-    "considerations": ["<list of important considerations>"]
+    "explanation": "<3-5 sentence summary>",
+    "assumptions": ["<assumption 1>", "<assumption 2>"],
+    "clarifying_questions": ["<question 1>", "<question 2>"],
+    "considerations": ["<consideration 1>"]
 }}"""
 
         try:
@@ -136,21 +146,48 @@ Respond in the following JSON format:
         return self._parse_estimate_response(response_text)
 
     def _parse_estimate_response(self, response_text: str) -> dict:
-        """Parse the AI response into a structured estimate"""
+        """Parse the AI response into a structured estimate.
+
+        Always returns a dict with a positive estimated_cost. If the model
+        misbehaves and gives no numbers we fall back to a wide default range
+        rather than blocking the user.
+        """
+        parsed = None
         try:
-            # Try to extract JSON from response
             json_match = re.search(r'\{[\s\S]*\}', response_text)
             if json_match:
-                return json.loads(json_match.group())
+                parsed = json.loads(json_match.group())
         except json.JSONDecodeError:
-            pass
+            parsed = None
 
-        # Fallback: return raw response
-        return {
-            'estimated_cost': 0,
-            'explanation': response_text,
-            'time_estimate': 'Contact for assessment'
-        }
+        if not parsed or not parsed.get('estimated_cost'):
+            # Mine the prose for any dollar amounts so we still return a number
+            nums = [int(n.replace(',', '')) for n in re.findall(r'\$([0-9,]+)', response_text)]
+            if nums:
+                low = min(nums)
+                high = max(nums) if max(nums) > low else low * 2
+                parsed = parsed or {}
+                parsed.setdefault('cost_range_low', low)
+                parsed.setdefault('cost_range_high', high)
+                parsed['estimated_cost'] = (low + high) // 2
+                parsed.setdefault('explanation', response_text.strip())
+            else:
+                # Last resort: a wide useful range so user can still proceed
+                parsed = {
+                    'estimated_cost': 300,
+                    'cost_range_low': 150,
+                    'cost_range_high': 800,
+                    'time_estimate': '1-4 hours typical',
+                    'explanation': (response_text.strip() or
+                                    'Estimate generated from typical residential rates.'),
+                    'clarifying_questions': [
+                        'How many fixtures or outlets are involved?',
+                        'Is existing wiring already in place?',
+                        'Any special access requirements (high ceiling, attic, crawlspace)?',
+                    ],
+                    'considerations': ['Schedule a visit for a precise quote'],
+                }
+        return parsed
 
     def _get_fallback_estimate(self, job_description: str) -> dict:
         """
@@ -201,19 +238,23 @@ Respond in the following JSON format:
             }
         else:
             return {
-                'estimated_cost': 200,
-                'cost_range_low': 100,
-                'cost_range_high': 500,
-                'time_estimate': 'Varies',
-                'explanation': "We need more details to provide an accurate estimate.\n\n"
-                              "Common electrical service costs:\n"
-                              "- Outlet installation: $150-250\n"
-                              "- Light fixture: $150-300\n"
-                              "- Panel upgrade: $1,500-3,500\n"
-                              "- Whole house rewiring: $8,000-15,000\n\n"
-                              "Schedule a visit for a detailed assessment and accurate quote.",
-                'materials_needed': ['To be determined'],
-                'considerations': ['On-site assessment needed']
+                'estimated_cost': 300,
+                'cost_range_low': 150,
+                'cost_range_high': 800,
+                'time_estimate': '1-4 hours typical',
+                'explanation': (
+                    "Based on typical residential electrical work, this job "
+                    "is likely $150–$800. The exact price depends on the "
+                    "specifics below. Tap Schedule to lock in a visit; you "
+                    "won't be charged until the work is confirmed on-site."
+                ),
+                'clarifying_questions': [
+                    'How many fixtures, outlets, or switches are involved?',
+                    'Is existing wiring already in place, or does new wiring need to be run?',
+                    'Where in the home is the work (kitchen, bath, attic, exterior, panel)?',
+                ],
+                'materials_needed': ['Standard electrical supplies'],
+                'considerations': ['On-site assessment will give a firm quote']
             }
 
     def chat(self, message: str) -> str:

@@ -263,7 +263,8 @@ jobs:
               "NSCameraUsageDescription:This app does not access the camera. The framework links the camera API but the feature is unused." \
               "NSMicrophoneUsageDescription:This app does not record audio. The framework links the audio session API but the feature is unused." \
               "NSPhotoLibraryUsageDescription:This app does not access photos. The framework links the image picker API but the feature is unused." \
-              "NSMotionUsageDescription:This app does not use motion data. The framework links the motion API but the feature is unused."; do
+              "NSMotionUsageDescription:This app does not use motion data. The framework links the motion API but the feature is unused." \
+              "NSLocationWhenInUseUsageDescription:Used only when you tap 'Use current location' to fill in your service address. Location is not stored or shared."; do
             k="${kv%%:*}"; v="${kv#*:}"
             /usr/libexec/PlistBuddy -c "Set :$k '$v'" ElectriciansNow-Info.plist 2>/dev/null || \
                 /usr/libexec/PlistBuddy -c "Add :$k string '$v'" ElectriciansNow-Info.plist
