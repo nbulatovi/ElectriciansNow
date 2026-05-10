@@ -1,18 +1,18 @@
-"""NASA-style continuous telemetry.
+"""NASA-style continuous telemetry, shipped to SolarWinds Papertrail.
 
 Every meaningful action calls track(event, **data). Events queue in
-memory; a daemon thread flushes to a Cloudflare Worker every 30 seconds
-or on critical events. Failed flushes persist to disk for next launch.
+memory; a daemon thread flushes to Papertrail's HTTPS log endpoint every
+30 seconds or on critical events. Failed flushes persist to disk for
+next launch.
 
 Configuration is baked at build time via secrets_baked.py:
-- TELEMETRY_URL: the CF worker URL (POST /ingest)
-- TELEMETRY_HMAC_KEY: shared HMAC secret
+- PAPERTRAIL_URL: defaults to SolarWinds NA-01 endpoint if blank
+- PAPERTRAIL_TOKEN: Bearer token from the log destination setup
 
-If neither is set, telemetry no-ops gracefully (local logging still works).
+If the token is missing, telemetry no-ops gracefully (local logging
+still works).
 """
 
-import hashlib
-import hmac
 import json
 import os
 import platform
@@ -32,8 +32,16 @@ def _secret(name, default=''):
         return getattr(_baked, name)
     return os.environ.get(name, default)
 
-TELEMETRY_URL = _secret('TELEMETRY_URL')
-TELEMETRY_HMAC_KEY = _secret('TELEMETRY_HMAC_KEY')
+PAPERTRAIL_URL = _secret(
+    'PAPERTRAIL_URL',
+    'https://logs.collector.na-01.cloud.solarwinds.com/v1/logs',
+)
+# Temporary hard-coded token for beta debugging. Rotate via Papertrail
+# dashboard once the build is verified working.
+PAPERTRAIL_TOKEN = _secret(
+    'PAPERTRAIL_TOKEN',
+    'doUTl1mEfbDLVksCD6eFqvj07mhWeQXyDFFDulpC8XbjhstGR1C4d-UNxweEYrcseb_-5NU',
+)
 
 # --- Storage paths ---------------------------------------------------------
 try:
@@ -75,35 +83,41 @@ def _device_info():
     }
 
 
-def _sign(body_bytes):
-    if not TELEMETRY_HMAC_KEY:
-        return ""
-    return hmac.new(TELEMETRY_HMAC_KEY.encode(), body_bytes, hashlib.sha256).hexdigest()
-
-
 def _post(events):
-    """Synchronously POST a batch. Returns True on success."""
-    if not TELEMETRY_URL or not events:
+    """Synchronously POST a batch of events as a JSON array. Each event is
+    flattened with session/app metadata so it's queryable in Papertrail.
+    Returns True on success."""
+    if not PAPERTRAIL_TOKEN or not events:
         return False
     try:
         import requests  # imported lazily to avoid startup penalty
     except Exception:
         return False
-    payload = {
-        "events": events,
-        "session_id": SESSION_ID,
-        "app_version": APP_VERSION,
-        "device": _device_info(),
-    }
-    body = json.dumps(payload, default=str).encode()
+
+    dev = _device_info()
+    enriched = []
+    for ev in events:
+        flat = {
+            "message": ev.get("event", "unknown"),
+            "app": "electricians-now",
+            "session": SESSION_ID,
+            "app_version": APP_VERSION,
+            "platform": dev.get("platform"),
+            **{k: v for k, v in ev.items() if k != "event"},
+        }
+        enriched.append(flat)
+
     try:
         r = requests.post(
-            TELEMETRY_URL.rstrip('/') + "/ingest",
-            data=body,
-            headers={"Content-Type": "application/json", "X-Sig": _sign(body)},
+            PAPERTRAIL_URL,
+            data=json.dumps(enriched, default=str).encode(),
+            headers={
+                "Authorization": f"Bearer {PAPERTRAIL_TOKEN}",
+                "Content-Type": "application/json",
+            },
             timeout=8,
         )
-        return r.status_code in (200, 201, 204)
+        return r.status_code in (200, 201, 202, 204)
     except Exception:
         return False
 
@@ -184,7 +198,9 @@ def start():
     _started = True
     t = threading.Thread(target=_flush_loop, daemon=True, name="telemetry-flush")
     t.start()
-    track("telemetry_started", url_configured=bool(TELEMETRY_URL))
+    track("telemetry_started",
+          url=PAPERTRAIL_URL[:80] if PAPERTRAIL_URL else "",
+          token_configured=bool(PAPERTRAIL_TOKEN))
 
 
 def track(event, **data):

@@ -74,8 +74,8 @@ jobs:
           WHOP_COMPANY_ID: ${{ secrets.WHOP_COMPANY_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          TELEMETRY_URL: ${{ secrets.TELEMETRY_URL }}
-          TELEMETRY_HMAC_KEY: ${{ secrets.TELEMETRY_HMAC_KEY }}
+          PAPERTRAIL_URL: ${{ secrets.PAPERTRAIL_URL }}
+          PAPERTRAIL_TOKEN: ${{ secrets.PAPERTRAIL_TOKEN }}
         run: |
           # Generate src/secrets_baked.py from GitHub secrets so the IPA
           # has the keys at runtime. Without this, os.environ.get() returns
@@ -84,7 +84,7 @@ jobs:
           python3 - <<'PY'
           import os
           keys = ["WHOP_API_KEY", "WHOP_COMPANY_ID", "ANTHROPIC_API_KEY",
-                  "OPENAI_API_KEY", "TELEMETRY_URL", "TELEMETRY_HMAC_KEY"]
+                  "OPENAI_API_KEY", "PAPERTRAIL_URL", "PAPERTRAIL_TOKEN"]
           lines = ["# Generated at build time. Do not edit. Do not commit.\n"]
           for k in keys:
               v = os.environ.get(k, "")
