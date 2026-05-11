@@ -383,9 +383,9 @@ class ScheduleScreen(Screen):
         Thread(target=self._poll_payment, args=(booking,), daemon=True).start()
 
     def _poll_payment(self, booking):
-        """Poll Whop API for up to 4 minutes looking for a completed payment."""
+        """Poll Whop API for up to 90s looking for a completed payment."""
         import whop_payment
-        deadline = time.time() + 240
+        deadline = time.time() + 90
         attempts = 0
         while time.time() < deadline and self.payment_polling:
             attempts += 1
@@ -404,12 +404,37 @@ class ScheduleScreen(Screen):
                 Clock.schedule_once(lambda dt: self._on_paid(), 0)
                 return
             telemetry.track("payment_poll_pending", attempts=attempts)
-            time.sleep(6 if attempts < 5 else 10)
+            time.sleep(5)
 
-        # Timed out without finding a payment
+        # Either user cancelled or we timed out without finding a payment
+        if not self.payment_polling:
+            # cancelled
+            telemetry.track("payment_polling_cancelled", attempts=attempts)
+            return
         booking["payment_status"] = "not_completed"
         telemetry.track("payment_not_completed", attempts=attempts)
         Clock.schedule_once(lambda dt: self._on_not_paid(), 0)
+
+    def cancel_payment(self):
+        """User tapped Cancel during the polling state."""
+        self.payment_polling = False
+        self.payment_status = ""
+        telemetry.track("payment_cancel_tapped")
+
+    def mark_paid_manually(self):
+        """User self-attests they completed the Whop payment. Mark the
+        booking pending-verification so the team can confirm later."""
+        self.payment_polling = False
+        self.payment_status = ""
+        app = App.get_running_app()
+        if app.bookings:
+            app.bookings[-1]["payment_status"] = "user_confirmed_pending_verification"
+        telemetry.track("payment_user_self_confirmed")
+        self._popup("Got it",
+                    "We've recorded your booking as paid (pending verification). "
+                    f"We'll reach out at {self.phone} to confirm "
+                    f"{self.selected_date} at {self.selected_time}.")
+        self.manager.current = "home"
 
     def _on_paid(self):
         self.payment_polling = False
@@ -422,7 +447,9 @@ class ScheduleScreen(Screen):
         self.payment_polling = False
         self.payment_status = ""
         self._popup("Payment not received",
-                    "We didn't see a completed payment. If you tapped Pay in the Whop window and it shows success, give it 1-2 minutes and check My Bookings. Otherwise, please try again.")
+                    "We didn't see a completed payment from Whop. If you tapped Pay "
+                    "and it succeeded, tap 'I Paid Anyway' below and we'll verify. "
+                    "Otherwise, try again.")
 
     def _popup(self, title, msg):
         content = BoxLayout(orientation="vertical", padding=dp(15), spacing=dp(15))

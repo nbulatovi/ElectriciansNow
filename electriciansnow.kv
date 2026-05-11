@@ -414,8 +414,28 @@
             halign: 'center'
             valign: 'middle'
 
+        # While polling, show escape hatches above the main button
+        BoxLayout:
+            orientation: 'horizontal'
+            spacing: dp(8)
+            size_hint_y: None
+            height: dp(48) if root.payment_polling else 0
+            opacity: 1 if root.payment_polling else 0
+
+            PillButton:
+                text: "Cancel"
+                bg_color: 0.7, 0.7, 0.74, 1
+                font_size: dp(15)
+                on_release: root.cancel_payment()
+
+            PillButton:
+                text: "I Paid Anyway"
+                bg_color: STAR_PURPLE
+                font_size: dp(15)
+                on_release: root.mark_paid_manually()
+
         PillButton:
-            text: "Confirming..." if root.payment_polling else "Confirm & Pay"
+            text: "Confirming... (90s max)" if root.payment_polling else "Confirm & Pay"
             bg_color: LUIGI_GREEN
             size_hint_y: None
             height: dp(60)
