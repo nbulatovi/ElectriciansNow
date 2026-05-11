@@ -520,6 +520,7 @@ jobs:
             PROVISIONING_PROFILE_SPECIFIER="match AppStore com.snslocation.electricians-now" \
             PRODUCT_BUNDLE_IDENTIFIER=com.snslocation.electricians-now \
             ENABLE_BITCODE=NO \
+            OTHER_LDFLAGS='$(inherited) -framework SafariServices' \
             OTHER_CODE_SIGN_FLAGS="--keychain $HOME/Library/Keychains/build.keychain-db"
 
           # Verify the archive

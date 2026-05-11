@@ -37,20 +37,28 @@ if IS_IOS:
         log_exception("applepay", "pyobjus bridge unavailable", e)
 
     if OBJC_AVAILABLE:
+        # SafariServices is linked at build time via OTHER_LDFLAGS in the
+        # workflow's archive step. Once linked, dyld loads it on process
+        # start and ObjC class lookup just works. If for any reason the
+        # link didn't happen, we try a runtime dlopen as a fallback.
         try:
-            # Try to also load the SafariServices framework via dlopen so
-            # SFSafariViewController is accessible. If this fails, we fall
-            # back to external Safari via UIApplication.openURL.
-            import ctypes
-            ctypes.CDLL(
-                "/System/Library/Frameworks/SafariServices.framework/SafariServices",
-                ctypes.RTLD_GLOBAL)
             SFSafariViewController = ObjCClass('SFSafariViewController')
             SAFARI_VC_AVAILABLE = True
-            log("applepay", "SafariServices framework loaded")
-        except Exception as e:
-            log_exception("applepay", "SafariServices framework not loadable, will use external Safari", e)
-            SAFARI_VC_AVAILABLE = False
+            log("applepay", "SafariServices linked at build time - SFSafariViewController resolved")
+        except Exception as e1:
+            log("applepay", "direct autoclass failed, trying dlopen fallback",
+                err=str(e1)[:200])
+            try:
+                import ctypes
+                ctypes.CDLL(
+                    "/System/Library/Frameworks/SafariServices.framework/SafariServices",
+                    ctypes.RTLD_GLOBAL)
+                SFSafariViewController = ObjCClass('SFSafariViewController')
+                SAFARI_VC_AVAILABLE = True
+                log("applepay", "SafariServices loaded via dlopen")
+            except Exception as e2:
+                log_exception("applepay", "SafariServices unavailable - will use external Safari", e2)
+                SAFARI_VC_AVAILABLE = False
         try:
             NSDictionary = ObjCClass('NSDictionary')
         except Exception:
