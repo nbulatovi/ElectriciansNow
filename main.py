@@ -307,16 +307,35 @@ class ScheduleScreen(Screen):
     def on_enter(self):
         from datetime import datetime, timedelta
         today = datetime.now()
+        # Today plus next 14 days
         self.available_dates = [
             (today + timedelta(days=i)).strftime("%A, %b %d")
-            for i in range(1, 15)
+            for i in range(0, 15)
         ]
+        # Default to today if not already chosen
+        if self.selected_date == "Select Date":
+            self.selected_date = self.available_dates[0]
+        # Default time to next hour within service window (8 AM - 5 PM)
+        if self.selected_time == "Select Time":
+            next_hour = today.hour + 1
+            if next_hour < 8:
+                next_hour = 8
+            if next_hour > 17:
+                # Past end of service hours -> first slot tomorrow
+                self.selected_date = self.available_dates[1] if len(self.available_dates) > 1 else self.available_dates[0]
+                next_hour = 8
+            # Format same way as values list ("8:00 AM", "1:00 PM" etc.)
+            suffix = "AM" if next_hour < 12 else "PM"
+            display = next_hour if next_hour <= 12 else next_hour - 12
+            self.selected_time = f"{display}:00 {suffix}"
         prefs = user_prefs.load()
         if not self.address and prefs.get("address"):
             self.address = prefs["address"]
         if not self.phone and prefs.get("phone"):
             self.phone = prefs["phone"]
-        telemetry.track("screen_changed", to="schedule")
+        telemetry.track("screen_changed", to="schedule",
+                        default_date=self.selected_date,
+                        default_time=self.selected_time)
 
     payment_status = StringProperty("")
     payment_polling = BooleanProperty(False)
@@ -414,27 +433,6 @@ class ScheduleScreen(Screen):
         booking["payment_status"] = "not_completed"
         telemetry.track("payment_not_completed", attempts=attempts)
         Clock.schedule_once(lambda dt: self._on_not_paid(), 0)
-
-    def cancel_payment(self):
-        """User tapped Cancel during the polling state."""
-        self.payment_polling = False
-        self.payment_status = ""
-        telemetry.track("payment_cancel_tapped")
-
-    def mark_paid_manually(self):
-        """User self-attests they completed the Whop payment. Mark the
-        booking pending-verification so the team can confirm later."""
-        self.payment_polling = False
-        self.payment_status = ""
-        app = App.get_running_app()
-        if app.bookings:
-            app.bookings[-1]["payment_status"] = "user_confirmed_pending_verification"
-        telemetry.track("payment_user_self_confirmed")
-        self._popup("Got it",
-                    "We've recorded your booking as paid (pending verification). "
-                    f"We'll reach out at {self.phone} to confirm "
-                    f"{self.selected_date} at {self.selected_time}.")
-        self.manager.current = "home"
 
     def _on_paid(self):
         self.payment_polling = False

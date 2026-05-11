@@ -14,27 +14,47 @@ from app_logger import log, log_exception
 IS_IOS = platform.system() == "Darwin"
 
 OBJC_AVAILABLE = False
+SAFARI_VC_AVAILABLE = False
 SFSafariViewController = None
 NSURL = None
 UIApplication = None
+NSDictionary = None
 ObjCClass = None
 
 if IS_IOS:
-    # kivy-ios ships pyobjus, NOT pyobjc. Previous version of this module
-    # imported `objc` (pyobjc, Mac-only) which always failed on device,
-    # silently routing payments to the desktop fallback that doesn't open
-    # anything. That bug looked like "no error, no Whop window" -- which is
-    # exactly the symptom the user reported.
+    # kivy-ios ships pyobjus (NOT pyobjc). Earlier code imported `objc`
+    # which was always None on device. This module now uses UIApplication
+    # to open the URL in Safari — only needs UIKit (always linked).
+    # SafariServices.framework is optional and tried lazily.
     try:
         from pyobjus import autoclass as _autoclass
         ObjCClass = _autoclass
-        SFSafariViewController = ObjCClass('SFSafariViewController')
         NSURL = ObjCClass('NSURL')
         UIApplication = ObjCClass('UIApplication')
         OBJC_AVAILABLE = True
-        log("applepay", "pyobjus bridge loaded")
+        log("applepay", "pyobjus bridge loaded (UIKit)")
     except Exception as e:
         log_exception("applepay", "pyobjus bridge unavailable", e)
+
+    if OBJC_AVAILABLE:
+        try:
+            # Try to also load the SafariServices framework via dlopen so
+            # SFSafariViewController is accessible. If this fails, we fall
+            # back to external Safari via UIApplication.openURL.
+            import ctypes
+            ctypes.CDLL(
+                "/System/Library/Frameworks/SafariServices.framework/SafariServices",
+                ctypes.RTLD_GLOBAL)
+            SFSafariViewController = ObjCClass('SFSafariViewController')
+            SAFARI_VC_AVAILABLE = True
+            log("applepay", "SafariServices framework loaded")
+        except Exception as e:
+            log_exception("applepay", "SafariServices framework not loadable, will use external Safari", e)
+            SAFARI_VC_AVAILABLE = False
+        try:
+            NSDictionary = ObjCClass('NSDictionary')
+        except Exception:
+            NSDictionary = None
 
 
 def _resolve_top_view_controller():
@@ -151,31 +171,88 @@ def _resolve_top_view_controller():
         return None
 
 
-def _open_checkout_ios(purchase_url, on_complete=None):
-    """Open Whop checkout in SFSafariViewController on iOS."""
-    log("applepay", "_open_checkout_ios called", purchase_url=purchase_url)
+def _open_in_safari(purchase_url):
+    """Open URL in mobile Safari (external). Uses only UIKit, always linked."""
+    log("applepay", "open_in_safari called", url_len=len(purchase_url),
+        url_prefix=purchase_url[:80])
+    if not OBJC_AVAILABLE:
+        log("applepay", "FAIL open_in_safari: OBJC_AVAILABLE=False")
+        return {"error": "iOS bridge not available"}
     try:
         url = NSURL.URLWithString_(purchase_url)
         if not url:
             log("applepay", "FAIL: NSURL.URLWithString_ returned nil",
-                purchase_url=purchase_url)
-            return {"error": "Invalid checkout URL"}
+                url_prefix=purchase_url[:80])
+            return {"error": "Invalid URL"}
+        log("applepay", "NSURL created")
 
-        safari_vc = SFSafariViewController.alloc().initWithURL_(url)
-        if not safari_vc:
-            log("applepay", "FAIL: SFSafariViewController init returned nil")
-            return {"error": "Could not construct Safari view"}
+        app = UIApplication.sharedApplication()
+        if not app:
+            log("applepay", "FAIL: UIApplication.sharedApplication() returned nil")
+            return {"error": "No UIApplication"}
+        log("applepay", "UIApplication.sharedApplication OK")
 
-        top_vc = _resolve_top_view_controller()
-        if not top_vc:
-            return {"error": "Could not find a window to present from. Reopen the app and try again."}
+        # iOS 10+: openURL:options:completionHandler:. Pass an empty options
+        # dict and nil completion handler. pyobjus may struggle with the
+        # NSDictionary literal so we try a few forms.
+        try:
+            empty = NSDictionary.dictionary() if NSDictionary else None
+        except Exception:
+            empty = None
 
-        top_vc.presentViewController_animated_completion_(safari_vc, True, None)
-        log("applepay", "SFSafariViewController present call returned")
-        return {"status": "presented", "purchase_url": purchase_url}
+        # Try the modern signature first
+        try:
+            app.openURL_options_completionHandler_(url, empty, None)
+            log("applepay", "openURL_options_completionHandler_ returned")
+            return {"status": "opened_external"}
+        except Exception as e:
+            log("applepay", "openURL_options_completionHandler_ raised",
+                err=str(e)[:200])
+
+        # Fall back to legacy openURL: (iOS < 10, deprecated but may still work)
+        try:
+            app.openURL_(url)
+            log("applepay", "openURL_ (legacy) returned")
+            return {"status": "opened_external_legacy"}
+        except Exception as e:
+            log_exception("applepay", "openURL_ legacy also failed", e)
+            return {"error": f"Could not open URL in Safari: {e}"}
     except Exception as e:
-        log_exception("applepay", "failed to present SafariVC", e)
-        return {"error": f"Failed to open checkout: {e}"}
+        log_exception("applepay", "open_in_safari outer raised", e)
+        return {"error": str(e)}
+
+
+def _open_checkout_ios(purchase_url, on_complete=None):
+    """Open the Whop checkout. Tries in-app SafariVC first if available,
+    else falls back to mobile Safari (external)."""
+    log("applepay", "_open_checkout_ios called",
+        safari_vc_available=SAFARI_VC_AVAILABLE,
+        objc_available=OBJC_AVAILABLE,
+        url_len=len(purchase_url))
+
+    if SAFARI_VC_AVAILABLE:
+        # Try the in-app webview path
+        try:
+            url = NSURL.URLWithString_(purchase_url)
+            if url:
+                safari_vc = SFSafariViewController.alloc().initWithURL_(url)
+                if safari_vc:
+                    top_vc = _resolve_top_view_controller()
+                    if top_vc:
+                        top_vc.presentViewController_animated_completion_(safari_vc, True, None)
+                        log("applepay", "SFSafariViewController presented OK")
+                        return {"status": "presented", "purchase_url": purchase_url}
+                    else:
+                        log("applepay", "no top VC, falling back to external Safari")
+                else:
+                    log("applepay", "safari_vc init nil, falling back")
+            else:
+                log("applepay", "NSURL nil, falling back")
+        except Exception as e:
+            log_exception("applepay", "SafariVC path raised, falling back", e)
+
+    # External Safari fallback - bulletproof (only needs UIKit)
+    return _open_in_safari(purchase_url)
 
 
 def _open_checkout_desktop(purchase_url, on_complete=None):
