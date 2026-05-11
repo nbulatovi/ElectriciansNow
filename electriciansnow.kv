@@ -18,47 +18,47 @@
 <HomeScreen>:
     BoxLayout:
         orientation: 'vertical'
-        padding: dp(16)
-        spacing: dp(10)
+        padding: dp(14)
+        spacing: dp(8)
 
-        # Header - compact so the keyboard doesn't push the CTA offscreen
+        # Compact app title bar
         BoxLayout:
             size_hint_y: None
-            height: dp(48)
+            height: dp(44)
             orientation: 'horizontal'
             spacing: dp(6)
 
             Label:
-                text: "[size=32]⚡[/size]"
+                text: "[size=30]⚡[/size]"
                 markup: True
                 size_hint_x: None
-                width: dp(40)
+                width: dp(34)
 
             Label:
                 text: "Electricians NOW"
-                font_size: dp(22)
+                font_size: dp(19)
                 bold: True
                 color: NAVY
                 halign: 'left'
                 valign: 'middle'
                 text_size: self.size
 
-        # Address hero card (compact)
+        # Address hero card
         HeroCard:
             id: address_card
             size_hint_y: None
-            height: dp(118)
+            height: dp(112)
             orientation: 'vertical'
-            padding: dp(12)
+            padding: dp(10)
             spacing: dp(4)
 
             Label:
-                text: "Service address"
+                text: "SERVICE ADDRESS"
                 size_hint_y: None
                 height: dp(18)
-                font_size: dp(12)
+                font_size: dp(11)
                 bold: True
-                color: NAVY
+                color: SWITCH_BLUE[0], SWITCH_BLUE[1], SWITCH_BLUE[2], 1
                 halign: 'left'
                 valign: 'middle'
                 text_size: self.size
@@ -71,7 +71,7 @@
                 multiline: False
                 hint_text: "Start typing your address..."
                 size_hint_y: None
-                height: dp(42)
+                height: dp(40)
                 font_size: dp(15)
                 padding: [dp(8), dp(10), dp(8), dp(10)]
                 background_color: 0.96, 0.96, 0.97, 1
@@ -82,34 +82,39 @@
                 text: "\U0001F4CD  Use current location"
                 bg_color: SWITCH_BLUE
                 size_hint_y: None
-                height: dp(34)
-                font_size: dp(13)
+                height: dp(32)
+                font_size: dp(12)
                 on_release: root.use_current_location()
 
         Label:
             text: root.locating
             size_hint_y: None
-            height: dp(18) if root.locating else 0
+            height: dp(16) if root.locating else 0
             opacity: 1 if root.locating else 0
-            font_size: dp(12)
+            font_size: dp(11)
             color: 0.4, 0.4, 0.5, 1
             halign: 'center'
             valign: 'middle'
             text_size: self.size
 
-        # Compact label above the task input
+        # Big chunky section header naming what this screen is for
         Label:
-            text: "What do you need done?"
+            text: "JOB DESCRIPTION"
             size_hint_y: None
-            height: dp(22)
-            font_size: dp(14)
+            height: dp(30)
+            font_size: dp(20)
             bold: True
-            color: NAVY
+            color: SWITCH_RED[0], SWITCH_RED[1], SWITCH_RED[2], 1
             halign: 'left'
             valign: 'middle'
             text_size: self.size
 
+        # Fixed-height description box. Compact enough that even with the
+        # iOS keyboard open, the Get Estimate button stays visible thanks to
+        # Window.softinput_mode='below_target'.
         HeroCard:
+            size_hint_y: None
+            height: dp(140)
             orientation: 'vertical'
             padding: dp(4)
 
@@ -119,19 +124,23 @@
                 on_text: root.task_description = self.text
                 multiline: True
                 hint_text: "e.g., Replace bedroom ceiling fan, install dimmer..."
-                font_size: dp(17)
-                padding: [dp(12), dp(12)]
+                font_size: dp(16)
+                padding: [dp(10), dp(10)]
                 background_color: 1, 1, 1, 0
                 foreground_color: NAVY
                 cursor_color: NAVY
 
-        # Single CTA - stays visible even with keyboard up
+        # Filler space pushes the CTA toward the bottom when keyboard closed,
+        # but with softinput_mode='below_target' it scrolls into view when open.
+        Widget:
+
+        # The big red action button
         PillButton:
             text: "Get AI Estimate"
             bg_color: SWITCH_RED
             size_hint_y: None
-            height: dp(56)
-            font_size: dp(20)
+            height: dp(58)
+            font_size: dp(21)
             on_release: root.start_estimate()
 
 
@@ -246,145 +255,190 @@
             on_release: root.proceed_to_schedule()
 
 
-# ----- Schedule -----------------------------------------------------------
+# ----- Scheduling: colorful Nintendo-style form ---------------------------
 <ScheduleScreen>:
-    BoxLayout:
-        orientation: 'vertical'
-        padding: dp(15)
-        spacing: dp(10)
-
+    ScrollView:
+        do_scroll_x: False
         BoxLayout:
+            orientation: 'vertical'
+            padding: dp(14)
+            spacing: dp(12)
             size_hint_y: None
-            height: dp(54)
+            height: self.minimum_height
 
-            PillButton:
-                text: "< Back"
-                bg_color: 0.7, 0.7, 0.74, 1
-                size_hint_x: None
-                width: dp(110)
-                font_size: dp(16)
-                on_release: app.root.current = 'estimate'
+            # Header
+            BoxLayout:
+                size_hint_y: None
+                height: dp(52)
 
+                PillButton:
+                    text: "< Back"
+                    bg_color: 0.7, 0.7, 0.74, 1
+                    size_hint_x: None
+                    width: dp(96)
+                    font_size: dp(15)
+                    on_release: app.root.current = 'estimate'
+
+                Label:
+                    text: "SCHEDULING"
+                    font_size: dp(26)
+                    bold: True
+                    color: NAVY
+
+            # Estimate summary (green, money is good)
+            HeroCard:
+                size_hint_y: None
+                height: dp(56)
+                padding: dp(10)
+                Label:
+                    text: app.get_estimate_summary() or "No estimate yet"
+                    font_size: dp(20)
+                    color: LUIGI_GREEN[0], LUIGI_GREEN[1], LUIGI_GREEN[2], 1
+                    bold: True
+                    halign: 'center'
+                    valign: 'middle'
+                    text_size: self.size
+
+            # DATE card (Mario yellow)
+            HeroCard:
+                size_hint_y: None
+                height: dp(96)
+                orientation: 'vertical'
+                padding: dp(10)
+                spacing: dp(4)
+                Label:
+                    text: "\U0001F4C5  DATE"
+                    size_hint_y: None
+                    height: dp(20)
+                    font_size: dp(13)
+                    bold: True
+                    color: MARIO_YELLOW[0]*0.85, MARIO_YELLOW[1]*0.6, 0, 1
+                    halign: 'left'
+                    valign: 'middle'
+                    text_size: self.size
+                Spinner:
+                    id: date_spinner
+                    text: root.selected_date
+                    values: root.available_dates
+                    size_hint_y: None
+                    height: dp(50)
+                    font_size: dp(17)
+                    background_color: MARIO_YELLOW
+                    color: NAVY
+                    bold: True
+                    on_text: root.selected_date = self.text
+
+            # TIME card (Luigi green)
+            HeroCard:
+                size_hint_y: None
+                height: dp(96)
+                orientation: 'vertical'
+                padding: dp(10)
+                spacing: dp(4)
+                Label:
+                    text: "⏰  TIME"
+                    size_hint_y: None
+                    height: dp(20)
+                    font_size: dp(13)
+                    bold: True
+                    color: LUIGI_GREEN
+                    halign: 'left'
+                    valign: 'middle'
+                    text_size: self.size
+                Spinner:
+                    id: time_spinner
+                    text: root.selected_time
+                    values: root.available_times
+                    size_hint_y: None
+                    height: dp(50)
+                    font_size: dp(17)
+                    background_color: LUIGI_GREEN
+                    color: 1, 1, 1, 1
+                    bold: True
+                    on_text: root.selected_time = self.text
+
+            # ADDRESS card (Switch blue)
+            HeroCard:
+                size_hint_y: None
+                height: dp(112)
+                orientation: 'vertical'
+                padding: dp(10)
+                spacing: dp(4)
+                Label:
+                    text: "\U0001F4CD  ADDRESS"
+                    size_hint_y: None
+                    height: dp(20)
+                    font_size: dp(13)
+                    bold: True
+                    color: SWITCH_BLUE
+                    halign: 'left'
+                    valign: 'middle'
+                    text_size: self.size
+                TextInput:
+                    text: root.address
+                    on_text: root.address = self.text
+                    multiline: True
+                    hint_text: "Service address"
+                    size_hint_y: None
+                    height: dp(66)
+                    font_size: dp(16)
+                    padding: [dp(10), dp(10)]
+                    background_color: 0.92, 0.97, 1, 1
+                    foreground_color: NAVY
+                    cursor_color: SWITCH_BLUE
+
+            # PHONE card (Star purple)
+            HeroCard:
+                size_hint_y: None
+                height: dp(96)
+                orientation: 'vertical'
+                padding: dp(10)
+                spacing: dp(4)
+                Label:
+                    text: "\U0001F4F1  PHONE"
+                    size_hint_y: None
+                    height: dp(20)
+                    font_size: dp(13)
+                    bold: True
+                    color: STAR_PURPLE
+                    halign: 'left'
+                    valign: 'middle'
+                    text_size: self.size
+                TextInput:
+                    text: root.phone
+                    on_text: root.phone = self.text
+                    multiline: False
+                    hint_text: "(555) 123-4567"
+                    size_hint_y: None
+                    height: dp(50)
+                    font_size: dp(18)
+                    padding: [dp(10), dp(10)]
+                    background_color: 0.97, 0.94, 1, 1
+                    foreground_color: NAVY
+                    cursor_color: STAR_PURPLE
+
+            # Payment status while polling
             Label:
-                text: "Schedule"
-                font_size: dp(26)
+                text: root.payment_status
+                size_hint_y: None
+                height: dp(34) if root.payment_status else 0
+                opacity: 1 if root.payment_status else 0
+                font_size: dp(15)
+                color: SWITCH_BLUE
                 bold: True
-                color: NAVY
+                text_size: self.width, None
+                halign: 'center'
+                valign: 'middle'
 
-        Label:
-            text: app.get_estimate_summary()
-            size_hint_y: None
-            height: dp(36)
-            font_size: dp(18)
-            color: LUIGI_GREEN[0], LUIGI_GREEN[1], LUIGI_GREEN[2], 1
-            bold: True
-
-        Label:
-            text: "Date"
-            size_hint_y: None
-            height: dp(28)
-            font_size: dp(17)
-            color: NAVY
-            halign: 'left'
-            text_size: self.size
-
-        Spinner:
-            id: date_spinner
-            text: root.selected_date
-            values: root.available_dates
-            size_hint_y: None
-            height: dp(54)
-            font_size: dp(18)
-            background_color: 1, 1, 1, 1
-            color: NAVY
-            on_text: root.selected_date = self.text
-
-        Label:
-            text: "Time"
-            size_hint_y: None
-            height: dp(28)
-            font_size: dp(17)
-            color: NAVY
-            halign: 'left'
-            text_size: self.size
-
-        Spinner:
-            id: time_spinner
-            text: root.selected_time
-            values: root.available_times
-            size_hint_y: None
-            height: dp(54)
-            font_size: dp(18)
-            background_color: 1, 1, 1, 1
-            color: NAVY
-            on_text: root.selected_time = self.text
-
-        Label:
-            text: "Address"
-            size_hint_y: None
-            height: dp(28)
-            font_size: dp(17)
-            color: NAVY
-            halign: 'left'
-            text_size: self.size
-
-        TextInput:
-            text: root.address
-            on_text: root.address = self.text
-            multiline: True
-            hint_text: "Service address"
-            size_hint_y: None
-            height: dp(70)
-            font_size: dp(18)
-            padding: [dp(12), dp(12)]
-            background_color: 1, 1, 1, 1
-            foreground_color: NAVY
-            cursor_color: NAVY
-
-        Label:
-            text: "Phone"
-            size_hint_y: None
-            height: dp(28)
-            font_size: dp(17)
-            color: NAVY
-            halign: 'left'
-            text_size: self.size
-
-        TextInput:
-            text: root.phone
-            on_text: root.phone = self.text
-            multiline: False
-            hint_text: "(555) 123-4567"
-            size_hint_y: None
-            height: dp(54)
-            font_size: dp(19)
-            padding: [dp(12), dp(12)]
-            background_color: 1, 1, 1, 1
-            foreground_color: NAVY
-            cursor_color: NAVY
-
-        Widget:
-
-        Label:
-            text: root.payment_status
-            size_hint_y: None
-            height: dp(36) if root.payment_status else 0
-            opacity: 1 if root.payment_status else 0
-            font_size: dp(15)
-            color: SWITCH_BLUE[0], SWITCH_BLUE[1], SWITCH_BLUE[2], 1
-            bold: True
-            text_size: self.width, None
-            halign: 'center'
-            valign: 'middle'
-
-        PillButton:
-            text: "Confirming..." if root.payment_polling else "Confirm & Pay"
-            bg_color: LUIGI_GREEN
-            size_hint_y: None
-            height: dp(60)
-            font_size: dp(22)
-            disabled: root.payment_polling
-            on_release: root.confirm_booking()
+            # CONFIRM & PAY (big chunky red Mario star button)
+            PillButton:
+                text: "Confirming..." if root.payment_polling else "Confirm & Pay"
+                bg_color: SWITCH_RED
+                size_hint_y: None
+                height: dp(64)
+                font_size: dp(22)
+                disabled: root.payment_polling
+                on_release: root.confirm_booking()
 
 
 # ----- Bookings -----------------------------------------------------------

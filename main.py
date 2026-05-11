@@ -42,6 +42,10 @@ from nintendo_widgets import (TileButton, HeroCard, PillButton, PriceTicker,
 # Cream background
 Window.clearcolor = CREAM
 Window.size = (400, 800)
+# When the keyboard opens, scroll the focused input above it instead of
+# letting it cover any button. Critical for the home screen "Get Estimate"
+# button to stay tappable while typing the description.
+Window.softinput_mode = 'below_target'
 
 
 class HomeScreen(Screen):
